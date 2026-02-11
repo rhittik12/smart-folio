@@ -1,8 +1,29 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🚀 Smartfolio - Enterprise-Grade SaaS Portfolio Builder
 
-## Getting Started
+A production-ready, scalable SaaS application for creating AI-powered portfolio websites. Built with Next.js 16, tRPC, Prisma, and Better Auth.
 
-First, run the development server:
+## ✨ Features
+
+- 🎨 **Drag & Drop Builder** - Visual portfolio editor with templates
+- 🤖 **AI-Powered Generation** - Generate content with OpenAI/Anthropic
+- 🔐 **Secure Authentication** - Email/password + OAuth (Google, GitHub)
+- 💳 **Stripe Integration** - Subscription billing and payments
+- 📊 **Analytics Dashboard** - Track portfolio views and engagement
+- 🎯 **Type-Safe APIs** - End-to-end type safety with tRPC
+- 🗄️ **PostgreSQL Database** - Prisma ORM with migrations
+- 📱 **Responsive Design** - Mobile-first Tailwind CSS
+- 🚀 **Production Ready** - Scalable architecture, protected routes
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18+
+- PostgreSQL database
+- npm or pnpm
+
+### Quick Start
+
+First, install dependencies:
 
 ```bash
 npm run dev
