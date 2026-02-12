@@ -1,6 +1,165 @@
+"use client";
+
 import Link from "next/link";
+import { useState, useRef, useCallback, useEffect } from "react";
+
+const MAX_WORDS = 500;
+
+function countWords(text: string): number {
+  const trimmed = text.trim();
+  if (trimmed === "") return 0;
+  return trimmed.split(/\s+/).length;
+}
+
+function truncateToWordLimit(text: string, limit: number): string {
+  let wordCount = 0;
+  let inWord = false;
+  for (let i = 0; i < text.length; i++) {
+    const isWhitespace = /\s/.test(text[i]);
+    if (!isWhitespace && !inWord) {
+      wordCount++;
+      if (wordCount > limit) {
+        return text.slice(0, i);
+      }
+    }
+    inWord = !isWhitespace;
+  }
+  return text;
+}
+
+interface SpeechResultEvent {
+  results: {
+    length: number;
+    [index: number]: { 0: { transcript: string }; isFinal: boolean };
+  };
+}
+
+interface SpeechRecognitionInstance {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onresult: ((event: SpeechResultEvent) => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  start(): void;
+  stop(): void;
+  abort(): void;
+}
+
+function getSpeechRecognitionCtor(): (new () => SpeechRecognitionInstance) | undefined {
+  if (typeof window === "undefined") return undefined;
+  const w = window as unknown as Record<string, unknown>;
+  return (w.SpeechRecognition ?? w.webkitSpeechRecognition) as
+    | (new () => SpeechRecognitionInstance)
+    | undefined;
+}
 
 export default function Home() {
+  const [text, setText] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const baseTextRef = useRef("");
+  const textRef = useRef(text);
+  textRef.current = text;
+
+  const wordCount = countWords(text);
+
+  const autoResize = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 400)}px`;
+  }, []);
+
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      let value = e.target.value;
+      if (countWords(value) > MAX_WORDS) {
+        value = truncateToWordLimit(value, MAX_WORDS);
+      }
+      setText(value);
+      requestAnimationFrame(() => autoResize());
+    },
+    [autoResize],
+  );
+
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files.length > 0) {
+        setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+        e.target.value = "";
+      }
+    },
+    [],
+  );
+
+  const removeFile = useCallback((index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const toggleRecording = useCallback(() => {
+    if (isRecording) {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+      setIsRecording(false);
+      return;
+    }
+
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) return;
+
+    const recognition = new Ctor();
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    recognition.lang = "en-US";
+
+    baseTextRef.current = textRef.current;
+
+    recognition.onresult = (event: SpeechResultEvent) => {
+      let transcript = "";
+      for (let i = 0; i < event.results.length; i++) {
+        transcript += event.results[i][0].transcript;
+      }
+
+      const base = baseTextRef.current;
+      let combined = base + (base ? " " : "") + transcript;
+
+      if (countWords(combined) > MAX_WORDS) {
+        combined = truncateToWordLimit(combined, MAX_WORDS);
+      }
+
+      setText(combined);
+      requestAnimationFrame(() => autoResize());
+    };
+
+    recognition.onend = () => {
+      if (recognitionRef.current === recognition) {
+        setIsRecording(false);
+        recognitionRef.current = null;
+      }
+    };
+
+    recognition.onerror = () => {
+      if (recognitionRef.current === recognition) {
+        setIsRecording(false);
+        recognitionRef.current = null;
+      }
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setIsRecording(true);
+  }, [isRecording, autoResize]);
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+    };
+  }, []);
+
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-hidden">
       {/* Background glow effects */}
@@ -92,51 +251,90 @@ export default function Home() {
 
         {/* Subheading */}
         <p className="mt-5 max-w-xl text-center text-base text-gray-400 sm:mt-6 sm:text-lg md:text-xl">
-          Create stunning developer and designer portfolios with AI — in
-          minutes.
+          Create stunning portfolios in minutes.
         </p>
 
         {/* Prompt Input Box */}
         <div className="mt-10 w-full max-w-2xl sm:mt-14">
           <div className="rounded-2xl border border-white/10 bg-gray-900/80 p-4 shadow-2xl shadow-indigo-500/5 backdrop-blur-sm sm:rounded-3xl sm:p-6">
-            {/* Placeholder text area */}
-            <p className="min-h-[60px] text-sm text-gray-500 sm:min-h-[80px] sm:text-base">
-              Ask Smartfolio to create a portfolio for a frontend developer...
-            </p>
+            {/* Textarea */}
+            <textarea
+              ref={textareaRef}
+              value={text}
+              onChange={handleChange}
+              placeholder="Ask Smartfolio to create a portfolio for a frontend developer..."
+              rows={4}
+              className="w-full min-h-[120px] max-h-[400px] resize-none overflow-y-auto bg-transparent text-sm leading-relaxed text-white placeholder-gray-500 outline-none sm:text-base"
+            />
+
+            {/* Attached files */}
+            {files.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {files.map((file, i) => (
+                  <div
+                    key={`${file.name}-${file.size}-${i}`}
+                    className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs text-gray-300"
+                  >
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 12 12"
+                      fill="none"
+                      aria-hidden="true"
+                      className="shrink-0 text-gray-500"
+                    >
+                      <path
+                        d="M2 1.5A1.5 1.5 0 0 1 3.5 0h3.379a1.5 1.5 0 0 1 1.06.44l2.122 2.12A1.5 1.5 0 0 1 10.5 3.622V10.5A1.5 1.5 0 0 1 9 12H3.5A1.5 1.5 0 0 1 2 10.5V1.5Z"
+                        stroke="currentColor"
+                        strokeWidth="1"
+                      />
+                    </svg>
+                    <span className="max-w-[120px] truncate sm:max-w-[180px]">
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeFile(i)}
+                      aria-label={`Remove ${file.name}`}
+                      className="ml-0.5 shrink-0 text-gray-500 transition-colors hover:text-white"
+                    >
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 12 12"
+                        fill="none"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M3 3l6 6M9 3l-6 6"
+                          stroke="currentColor"
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Bottom action bar */}
             <div className="mt-3 flex items-center justify-between sm:mt-4">
               {/* Left: Attach */}
-              <button
-                type="button"
-                aria-label="Attach file"
-                className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-gray-400 transition-colors hover:border-white/20 hover:text-white"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M8 3v10M3 8h10"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                  />
-                </svg>
-              </button>
-
-              {/* Right: Plan, Voice, Send */}
-              <div className="flex items-center gap-2 sm:gap-3">
-                <span className="text-xs text-gray-500 sm:text-sm">Plan</span>
-
-                {/* Voice icon */}
+              <div className="flex items-center">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  onChange={handleFileChange}
+                  className="hidden"
+                  tabIndex={-1}
+                />
                 <button
                   type="button"
-                  aria-label="Voice input"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition-colors hover:text-white"
+                  aria-label="Attach file"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 text-gray-400 transition-colors hover:border-white/20 hover:text-white"
                 >
                   <svg
                     width="16"
@@ -144,6 +342,52 @@ export default function Home() {
                     viewBox="0 0 16 16"
                     fill="none"
                     aria-hidden="true"
+                  >
+                    <path
+                      d="M8 3v10M3 8h10"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Right: Word count, Plan, Voice, Send */}
+              <div className="flex items-center gap-2 sm:gap-3">
+                <span
+                  className={`text-xs tabular-nums sm:text-sm ${
+                    wordCount >= MAX_WORDS ? "text-red-400" : "text-gray-500"
+                  }`}
+                >
+                  {wordCount} / {MAX_WORDS} words
+                </span>
+
+                <div className="h-4 w-px bg-white/10" />
+
+                <span className="text-xs text-gray-500 sm:text-sm">Plan</span>
+
+                {/* Voice icon */}
+                <button
+                  type="button"
+                  aria-label={isRecording ? "Stop recording" : "Voice input"}
+                  onClick={toggleRecording}
+                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+                    isRecording
+                      ? "text-red-400"
+                      : "text-gray-400 hover:text-white"
+                  }`}
+                >
+                  {isRecording && (
+                    <span className="absolute inset-0 animate-ping rounded-lg bg-red-500/20" />
+                  )}
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                    className="relative"
                   >
                     <rect
                       x="5.5"
@@ -153,6 +397,7 @@ export default function Home() {
                       rx="2.5"
                       stroke="currentColor"
                       strokeWidth="1.5"
+                      className={isRecording ? "fill-red-400/30" : ""}
                     />
                     <path
                       d="M3 7a5 5 0 0 0 10 0"
