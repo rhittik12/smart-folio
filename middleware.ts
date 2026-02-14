@@ -25,43 +25,58 @@ function isRouteMatch(pathname: string, route: string): boolean {
   return pathname === route || pathname.startsWith(route + '/')
 }
 
+async function getSession(request: NextRequest): Promise<boolean> {
+  const cookie = request.cookies.get('better-auth.session_token')
+  if (!cookie?.value) return false
+
+  try {
+    const res = await fetch(new URL('/api/auth/get-session', request.url), {
+      headers: { cookie: request.headers.get('cookie') || '' },
+    })
+    if (!res.ok) return false
+    const data = await res.json()
+    return !!data?.session
+  } catch {
+    return false
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Skip static assets and API routes early
+  // Skip API and static routes — no auth gating needed
   if (pathname.startsWith('/api') || pathname.startsWith('/_next')) {
     return NextResponse.next()
   }
 
-  // Check if the route is public
   const isPublicRoute = publicRoutes.some(route => isRouteMatch(pathname, route))
   const isAuthRoute = authRoutes.some(route => isRouteMatch(pathname, route))
 
-  // Check for session cookie instead of calling Prisma directly.
-  // Better Auth stores the session token in a cookie named "better-auth.session_token".
-  // This avoids importing Prisma Client, which cannot run on Edge runtime.
-  const sessionCookie = request.cookies.get('better-auth.session_token')
-  const hasSession = !!sessionCookie?.value
+  // Public routes that aren't auth routes need no session check at all
+  if (isPublicRoute && !isAuthRoute) {
+    return NextResponse.next()
+  }
 
-  // If user is authenticated and trying to access auth routes, redirect to dashboard
-  if (hasSession && isAuthRoute) {
+  // Validate session via Better Auth API (runs on Node.js, has Prisma access).
+  // Only called when the route actually requires knowing auth state:
+  // protected routes and auth routes (to redirect logged-in users away).
+  const hasValidSession = await getSession(request)
+
+  if (hasValidSession && isAuthRoute) {
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
-  // If route is public, allow access
   if (isPublicRoute) {
     return NextResponse.next()
   }
 
-  // If user is not authenticated and trying to access protected route
-  if (!hasSession) {
+  if (!hasValidSession) {
     const signInUrl = new URL('/', request.url)
     signInUrl.searchParams.set('auth', 'login')
     signInUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(signInUrl)
   }
 
-  // Allow access to protected routes for authenticated users
   return NextResponse.next()
 }
 
