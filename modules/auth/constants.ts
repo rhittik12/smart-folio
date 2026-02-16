@@ -12,10 +12,7 @@ export const AUTH_ROUTES = {
 } as const
 
 export const PROTECTED_ROUTES = {
-  DASHBOARD: '/dashboard',
   PORTFOLIOS: '/portfolios',
-  BUILDER: '/builder',
-  SETTINGS: '/settings',
   BILLING: '/billing',
 } as const
 

@@ -14,7 +14,7 @@ const publicRoutes = [
   '/verify-email',
 ]
 
-// Define routes that should redirect to dashboard if authenticated
+// Define routes that should redirect to home if authenticated
 const authRoutes = [
   '/sign-in',
   '/sign-up',
@@ -63,7 +63,7 @@ export async function middleware(request: NextRequest) {
   const hasValidSession = await getSession(request)
 
   if (hasValidSession && isAuthRoute) {
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return NextResponse.redirect(new URL('/', request.url))
   }
 
   if (isPublicRoute) {

@@ -217,7 +217,7 @@ export default function Home() {
     setSocialError(null);
     setSocialLoading(provider);
     try {
-      const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
+      const callbackUrl = searchParams.get("callbackUrl") || "/";
       await authClient.signIn.social({
         provider,
         callbackURL: callbackUrl,
