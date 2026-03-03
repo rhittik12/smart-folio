@@ -1,302 +1,255 @@
-# 📋 Smartfolio - Complete Folder Structure
+# Smartfolio -- Folder Structure
 
 ## Overview
 
-This document provides a complete reference for the scalable, modular folder structure implemented in Smartfolio.
+Smartfolio uses a workspace-first architecture. There are no dashboard route groups, no sidebar navigation layouts, and no traditional SaaS page structure. The workspace IS the product.
 
-## 🏗️ Full Structure
+> **Note:** This document shows the **target folder structure** including both existing and planned files. Items marked with `[PLANNED]` or `[EXISTS]` indicate their current status. See [IMPLEMENTATION-COMPLETE.md](./IMPLEMENTATION-COMPLETE.md) for detailed build status.
+
+---
+
+## Full Structure
 
 ```
 smartfolio/
 ├── app/                              # Next.js App Router
-│   ├── (auth)/                       # Auth layout group
-│   │   ├── sign-in/
-│   │   ├── sign-up/
-│   │   ├── forgot-password/
-│   │   └── layout.tsx
-│   ├── (dashboard)/                  # Dashboard layout group
-│   │   ├── dashboard/
-│   │   ├── portfolios/
-│   │   ├── builder/
-│   │   ├── analytics/
-│   │   ├── billing/
-│   │   ├── settings/
-│   │   └── layout.tsx
-│   ├── (marketing)/                  # Marketing layout group
-│   │   ├── pricing/
-│   │   ├── about/
-│   │   ├── contact/
-│   │   └── layout.tsx
 │   ├── api/
-│   │   ├── auth/[...all]/route.ts   # Better Auth API
-│   │   ├── trpc/[trpc]/route.ts     # tRPC API
+│   │   ├── auth/[...all]/route.ts   # Better Auth API handler
+│   │   ├── trpc/[trpc]/route.ts     # tRPC API handler
 │   │   └── webhooks/
-│   │       └── stripe/route.ts       # Stripe webhooks
-│   ├── p/[slug]/                     # Public portfolio pages
+│   │       └── stripe/route.ts       # Stripe webhook handler
+│   ├── workspace/                    # AI workspace (protected) [PLANNED - not yet built]
+│   │   └── page.tsx                  # Two-pane: reasoning + preview
+│   ├── portfolio/[id]/               # Deep link to portfolio workspace (protected) [PLANNED - not yet built]
+│   │   └── page.tsx
+│   ├── p/[slug]/                     # Published portfolio (public) [PLANNED - not yet built]
+│   │   └── page.tsx
+│   ├── pricing/                      # Pricing page (public) [PLANNED - not yet built]
+│   │   └── page.tsx
 │   ├── globals.css
-│   ├── layout.tsx                    # Root layout
-│   └── page.tsx                      # Home page
+│   ├── layout.tsx                    # Root layout with TRPCProvider
+│   └── page.tsx                      # Landing page (prompt input + auth modal)
 │
 ├── modules/                          # Feature modules
 │   ├── auth/
-│   │   ├── components/              # Auth-specific components
 │   │   ├── hooks.ts                 # useAuth, useRequireAuth
-│   │   ├── types.ts                 # Auth types
-│   │   ├── utils.ts                 # Auth utilities
-│   │   ├── constants.ts             # Routes, configs
+│   │   ├── types.ts                 # User, Session types
+│   │   ├── utils.ts                 # Display name, initials, verification
+│   │   ├── constants.ts             # Route constants
 │   │   └── index.ts                 # Barrel export
 │   │
 │   ├── portfolio/
-│   │   ├── components/              # Portfolio components
-│   │   ├── hooks.ts                 # usePortfolios, useCreatePortfolio
-│   │   ├── types.ts                 # Portfolio types
-│   │   ├── utils.ts                 # generateSlug, formatViewCount
-│   │   ├── constants.ts             # Limits, themes
+│   │   ├── hooks.ts                 # usePortfolios, useCreatePortfolio, usePublishPortfolio
+│   │   ├── types.ts                 # Portfolio, Section, Analytics types
+│   │   ├── utils.ts                 # Slug generation, URL helpers, validation
+│   │   ├── constants.ts             # Themes, limits, section types
 │   │   └── index.ts
 │   │
 │   ├── ai/
-│   │   ├── components/              # AI generation UI
-│   │   ├── hooks.ts                 # useAIGeneration, useGeneratePortfolio
-│   │   ├── types.ts                 # AIGenerationRequest, etc.
-│   │   ├── utils.ts                 # buildPrompts, formatTokens
-│   │   ├── constants.ts             # Models, limits
+│   │   ├── hooks.ts                 # useAIGeneration, useGeneratePortfolioContent
+│   │   ├── types.ts                 # Generation request/response types
+│   │   ├── utils.ts                 # Prompt building, token estimation
+│   │   ├── constants.ts             # Model configs, generation limits
 │   │   └── index.ts
 │   │
 │   ├── builder/
-│   │   ├── components/              # Builder UI, blocks
-│   │   ├── hooks.ts                 # useBuilder, useTemplates
+│   │   ├── hooks.ts                 # useBuilder, useTemplates, useApplyTemplate
 │   │   ├── types.ts                 # Block, Template types
-│   │   ├── utils.ts                 # getBlockIcon, duplicateBlock
+│   │   ├── utils.ts                 # Block utilities, default content
 │   │   ├── constants.ts             # Block types, categories
 │   │   └── index.ts
 │   │
 │   └── billing/
-│       ├── components/              # Billing UI, pricing
-│       ├── hooks.ts                 # useSubscription, useCreateCheckout
+│       ├── hooks.ts                 # useSubscription, useCreateCheckoutSession
 │       ├── types.ts                 # Subscription, Payment types
-│       ├── utils.ts                 # formatCurrency, canAccessFeature
-│       ├── constants.ts             # Plans, pricing
+│       ├── utils.ts                 # Currency formatting, feature access
+│       ├── constants.ts             # Plans, pricing tiers
 │       └── index.ts
 │
 ├── components/                       # Shared UI components
 │   ├── ui/
-│   │   ├── button.tsx               # Base button component
-│   │   ├── input.tsx                # Input component
-│   │   ├── card.tsx                 # Card components
+│   │   ├── button.tsx               # Button (5 variants, 3 sizes, loading)
+│   │   ├── input.tsx                # Input with labels, errors, helper text
+│   │   ├── card.tsx                 # Card with Header, Title, Content, Footer
 │   │   ├── dialog.tsx               # Modal dialog
 │   │   ├── dropdown.tsx             # Dropdown menu
 │   │   └── index.ts
 │   │
-│   ├── forms/                        # Form components
-│   │   ├── text-field.tsx
-│   │   ├── select-field.tsx
-│   │   ├── checkbox.tsx
-│   │   └── index.ts
-│   │
-│   └── layouts/                      # Layout components
-│       ├── dashboard-layout.tsx      # Dashboard wrapper
-│       ├── marketing-layout.tsx      # Marketing wrapper
-│       ├── auth-layout.tsx           # Auth pages wrapper
+│   └── layouts/
+│       ├── workspace-layout.tsx     # Workspace chrome (top bar, pane container) [PLANNED]
+│       ├── marketing-layout.tsx     # Public page wrapper (nav, footer) [PLANNED]
+│       ├── auth-layout.tsx          # Auth modal/page wrapper [EXISTS]
 │       └── index.ts
 │
-├── server/                           # Backend (tRPC & services)
+├── server/                           # Backend
 │   ├── routers/
-│   │   ├── _app.ts                  # Root router
-│   │   ├── user.ts                  # User router
-│   │   ├── portfolio.ts             # Portfolio router
-│   │   ├── ai.ts                    # AI router
-│   │   ├── builder.ts               # Builder router
-│   │   └── billing.ts               # Billing router
+│   │   ├── _app.ts                  # Root router (merges all sub-routers)
+│   │   ├── user.ts                  # User profile management
+│   │   ├── portfolio.ts             # Portfolio CRUD + publish
+│   │   ├── ai.ts                    # AI generation endpoints
+│   │   ├── builder.ts               # Template and block operations
+│   │   └── billing.ts               # Stripe billing endpoints
 │   │
-│   ├── services/                     # Business logic services
-│   │   ├── stripe.service.ts        # Stripe integration
-│   │   ├── ai.service.ts            # AI provider integration
-│   │   ├── email.service.ts         # Email sending
-│   │   └── storage.service.ts       # File storage (S3)
+│   ├── services/
+│   │   ├── ai.ts                    # OpenAI integration, prompt engineering
+│   │   ├── stripe.ts                # Stripe subscriptions, webhooks
+│   │   ├── email.ts                 # Nodemailer SMTP
+│   │   ├── storage.ts               # AWS S3 uploads, signed URLs
+│   │   └── index.ts                 # Service container (singletons)
 │   │
 │   ├── middleware/
-│   │   └── index.ts                 # tRPC middleware (rate limit, etc.)
+│   │   └── index.ts                 # Rate limiting, plan checks, admin checks
 │   │
-│   ├── trpc.ts                      # tRPC initialization
-│   └── caller.ts                    # Server-side caller
+│   ├── trpc.ts                      # tRPC initialization, context, procedures
+│   └── caller.ts                    # Server-side tRPC caller
 │
-├── lib/                              # Utilities & configs
+├── lib/                              # Core utilities
 │   ├── auth.ts                      # Better Auth server config
 │   ├── auth-client.ts               # Better Auth client hooks
 │   ├── prisma.ts                    # Prisma client singleton
 │   ├── trpc-provider.tsx            # tRPC React provider
-│   └── utils.ts                     # Helper functions (cn, etc.)
+│   └── utils.ts                     # cn(), formatDate, etc.
 │
 ├── hooks/                            # Shared React hooks
-│   ├── use-debounce.ts              # Debounce hook
-│   ├── use-local-storage.ts         # Local storage hook
-│   ├── use-media-query.ts           # Media query hook
-│   ├── use-click-outside.ts         # Click outside hook
+│   ├── use-debounce.ts
+│   ├── use-local-storage.ts
+│   ├── use-media-query.ts
+│   ├── use-click-outside.ts
 │   └── index.ts
 │
-├── types/                            # TypeScript types
+├── types/                            # Shared TypeScript types
 │   ├── api.ts                       # API response types
-│   ├── common.ts                    # Common utility types
+│   ├── common.ts                    # Utility types
 │   └── index.ts
 │
 ├── prisma/
-│   ├── schema.prisma                # Database schema
-│   └── migrations/                  # Migration files
+│   └── schema.prisma                # Database schema
 │
 ├── public/                           # Static assets
-│   ├── images/
-│   └── fonts/
 │
 ├── docs/                             # Documentation
-│   ├── ARCHITECTURE.md              # Architecture overview
-│   └── FOLDER-STRUCTURE.md          # This file
+│   ├── ARCHITECTURE.md
+│   ├── DIAGRAMS.md
+│   ├── FOLDER-STRUCTURE.md          # This file
+│   ├── IMPLEMENTATION-COMPLETE.md
+│   └── QUICK-START.md
 │
 ├── .env                              # Environment variables (git-ignored)
 ├── .env.example                     # Environment template
-├── .gitignore
-├── middleware.ts                    # Next.js middleware (route protection)
+├── middleware.ts                    # Next.js route protection middleware
 ├── next.config.ts
 ├── package.json
-├── prisma.config.ts                 # Prisma 7 config
-├── README.md
-└── tsconfig.json
+├── tsconfig.json
+├── IMPLEMENTATION_SUMMARY.md
+├── PROJECT-SUMMARY.md
+└── SETUP.md
 ```
 
-## 📦 Module Structure Pattern
+---
 
-Each module in `modules/` follows this consistent pattern:
+## Route Mapping
+
+| Route | File | Auth | Purpose | Status |
+|-------|------|------|---------|--------|
+| `/` | `app/page.tsx` | No | Landing page + prompt input | **Built** |
+| `/workspace` | `app/workspace/page.tsx` | Yes | AI workspace | **Planned** |
+| `/portfolio/[id]` | `app/portfolio/[id]/page.tsx` | Yes | Portfolio workspace (deep link) | **Planned** |
+| `/p/[slug]` | `app/p/[slug]/page.tsx` | No | Published portfolio | **Planned** |
+| `/pricing` | `app/pricing/page.tsx` | No | Pricing page | **Planned** |
+
+There are no `(dashboard)` or `(auth)` route groups. Authentication is handled via an inline modal on the landing page, not through dedicated auth pages.
+
+---
+
+## Module Pattern
+
+Each module in `modules/` follows this structure:
 
 ```
 modules/[feature]/
-├── components/          # Feature-specific UI components
-│   ├── FeatureList.tsx
-│   ├── FeatureCard.tsx
-│   └── index.ts
-├── hooks.ts            # React hooks (useFeature, useFeatureList, etc.)
-├── types.ts            # TypeScript interfaces/types
+├── hooks.ts            # React hooks (tRPC wrappers)
+├── types.ts            # TypeScript interfaces
 ├── utils.ts            # Helper functions
-├── constants.ts        # Constants (limits, configs, etc.)
-└── index.ts           # Barrel export (public API)
+├── constants.ts        # Feature constants
+└── index.ts            # Barrel export
 ```
 
-## 🎯 Key Principles
+**Import convention:**
 
-### 1. **Feature-Based Organization**
-- Each feature is self-contained in its module
-- Modules export a clean public API via `index.ts`
-- Minimal dependencies between modules
-
-### 2. **Clear Separation of Concerns**
-- **Client**: `modules/*/components/`, `modules/*/hooks.ts`
-- **Server**: `server/routers/`, `server/services/`
-- **Database**: `prisma/schema.prisma`
-- **Shared**: `lib/`, `types/`, `hooks/`
-
-### 3. **Type Safety**
-- All modules have `types.ts` with TypeScript interfaces
-- Shared types in `types/` folder
-- tRPC provides end-to-end type safety
-
-### 4. **Scalability**
-- Easy to add new modules (just copy structure)
-- Easy to add new routers (import in `_app.ts`)
-- Easy to add new components (consistent patterns)
-
-## 🔗 Import Patterns
-
-### Module Imports (Barrel Exports)
 ```typescript
-// ✅ Good: Use barrel exports
+// Use barrel exports
 import { useAuth, getUserDisplayName } from '@/modules/auth'
 import { usePortfolios, generateSlug } from '@/modules/portfolio'
-
-// ❌ Avoid: Direct deep imports
-import { useAuth } from '@/modules/auth/hooks'
+import { useAIGeneration } from '@/modules/ai'
+import { useSubscription } from '@/modules/billing'
 ```
 
-### Component Imports
-```typescript
-// ✅ Good: Import from ui barrel
-import { Button, Input, Card } from '@/components/ui'
+---
 
-// ✅ Good: Import layouts
-import { DashboardLayout } from '@/components/layouts'
+## Layout Components
+
+| Component | Purpose | Used By | Status |
+|-----------|---------|---------|--------|
+| `workspace-layout.tsx` | Top bar + pane container for workspace | `/workspace`, `/portfolio/[id]` | **Planned** |
+| `marketing-layout.tsx` | Nav + footer for public pages | `/`, `/pricing` | **Planned** |
+| `auth-layout.tsx` | Centered auth modal wrapper | Auth modal on landing page | **Exists** |
+
+There is no `dashboard-layout.tsx`. The dashboard layout concept has been removed. The workspace layout replaces it.
+
+---
+
+## Server Structure
+
+```
+server/
+├── routers/          # tRPC endpoints (one file per domain)
+├── services/         # Business logic (one class per external service)
+├── middleware/        # Request middleware (rate limiting, plan checks)
+├── trpc.ts           # tRPC init, context creation, procedure definitions
+└── caller.ts         # Server-side caller for RSC
 ```
 
-### Server-Side Imports
-```typescript
-// ✅ Good: Import tRPC caller
-import { createCaller } from '@/server/caller'
-import { createTRPCContext } from '@/server/trpc'
-```
+Services are accessed via the service container (`server/services/index.ts`), which provides singleton instances of AIService, StripeService, EmailService, and StorageService.
 
-## 🚀 Adding New Features
+---
 
-### 1. Create Module
+## Key Principles
+
+1. **No dashboard route groups** -- The workspace is the product, not a page within a dashboard.
+2. **Feature-scoped modules** -- Each module is self-contained with minimal cross-module imports.
+3. **Barrel exports** -- Every module and component directory exports via `index.ts`.
+4. **Clear server/client boundary** -- `modules/` contains client hooks; `server/` contains backend logic.
+5. **Type safety** -- tRPC provides end-to-end types from database to UI. Zod validates all inputs.
+
+---
+
+## Adding New Features
+
+### Add a module
+
 ```bash
-mkdir -p modules/new-feature
+mkdir modules/new-feature
 touch modules/new-feature/{index,types,hooks,utils,constants}.ts
-mkdir modules/new-feature/components
 ```
 
-### 2. Create Router
-```bash
-touch server/routers/new-feature.ts
-```
+### Add a tRPC router
 
-### 3. Add to Root Router
+Create `server/routers/new-feature.ts`, then register it in `server/routers/_app.ts`:
+
 ```typescript
-// server/routers/_app.ts
 import { newFeatureRouter } from './new-feature'
 
 export const appRouter = createTRPCRouter({
-  // ... existing routers
+  // existing routers...
   newFeature: newFeatureRouter,
 })
 ```
 
-### 4. Add Prisma Models
-```prisma
-// prisma/schema.prisma
-model NewFeature {
-  id        String   @id @default(cuid())
-  userId    String
-  // ... fields
-  user      User     @relation(fields: [userId], references: [id])
-}
-```
+### Add a database model
 
-### 5. Run Migrations
+Add the model to `prisma/schema.prisma`, then:
+
 ```bash
-npm run db:generate
-npm run db:push
+npx prisma generate
+npx prisma db push
 ```
-
-## 📖 Best Practices
-
-1. **Keep modules independent** - avoid importing from other modules
-2. **Use barrel exports** - always export through `index.ts`
-3. **Type everything** - no `any` types
-4. **Server/client boundaries** - use `'use client'` explicitly
-5. **Consistent naming** - follow existing patterns
-6. **Document public APIs** - add JSDoc comments to exports
-
-## 🔐 Protected Routes
-
-Routes are protected at multiple levels:
-
-1. **Middleware** (`middleware.ts`) - Next.js route protection
-2. **tRPC** (`server/trpc.ts`) - `protectedProcedure`
-3. **Components** - `useAuth()` hook checks
-
-## 🎨 Styling
-
-- **Tailwind CSS** for utility classes
-- **Component variants** for reusable styles
-- **Consistent spacing** using Tailwind scale
-
-## 📚 Additional Resources
-
-- [Architecture Overview](./ARCHITECTURE.md)
-- [Setup Guide](../SETUP.md)
-- [Project Summary](../PROJECT-SUMMARY.md)

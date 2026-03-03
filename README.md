@@ -1,14 +1,15 @@
-# 🚀 Smartfolio - Enterprise-Grade SaaS Portfolio Builder
+# 🚀 Smartfolio - AI-Native Portfolio Generator
 
-A production-ready, scalable SaaS application for creating AI-powered portfolio websites. Built with Next.js 16, tRPC, Prisma, and Better Auth.
+An AI-powered portfolio generator for developers. Describe what you want in natural language, and Smartfolio creates a complete, polished portfolio website. Built with Next.js 16, tRPC, Prisma, and Better Auth.
 
 ## ✨ Features
 
-- 🎨 **Drag & Drop Builder** - Visual portfolio editor with templates
-- 🤖 **AI-Powered Generation** - Generate content with OpenAI/Anthropic
-- 🔐 **Secure Authentication** - Email/password + OAuth (Google, GitHub)
-- 💳 **Stripe Integration** - Subscription billing and payments
-- 📊 **Analytics Dashboard** - Track portfolio views and engagement
+- 🤖 **AI-Powered Generation** - Type a prompt, get a complete portfolio instantly
+- 📝 **Natural Language Interface** - No forms, no drag-and-drop, just describe what you want
+- 🔄 **Iterative Refinement** - Fine-tune your portfolio with follow-up prompts
+- 👁️ **Live Preview** - See your portfolio render in real-time as AI generates it
+- 🔐 **Secure Authentication** - Google, GitHub, and email/password login
+- 💳 **Stripe Integration** - Subscription billing with FREE, PRO, and ENTERPRISE tiers
 - 🎯 **Type-Safe APIs** - End-to-end type safety with tRPC
 - 🗄️ **PostgreSQL Database** - Prisma ORM with migrations
 - 📱 **Responsive Design** - Mobile-first Tailwind CSS
@@ -26,29 +27,70 @@ A production-ready, scalable SaaS application for creating AI-powered portfolio 
 First, install dependencies:
 
 ```bash
+npm install
+```
+
+Then, configure environment variables:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at minimum:
+
+```env
+DATABASE_URL="postgresql://user:password@localhost:5432/smartfolio"
+BETTER_AUTH_SECRET="your-secret-key-min-32-characters-long"
+BETTER_AUTH_URL="http://localhost:3000"
+OPENAI_API_KEY="sk-..."
+```
+
+Setup the database:
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+Start the development server:
+
+```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🎯 How It Works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. **Land on the homepage** - See a simple prompt input
+2. **Describe your portfolio** - "Create a dark minimalist portfolio for a React developer"
+3. **Authenticate** - Sign in with Google or GitHub (inline modal)
+4. **Enter the workspace** - AI generates your portfolio with live preview
+5. **Refine** - Type follow-up prompts to adjust design, content, or layout
+6. **Publish** - One-click publish to get a public URL at `/p/[your-slug]`
 
-## Learn More
+There is no dashboard. The workspace IS the product.
 
-To learn more about Next.js, take a look at the following resources:
+## 📚 Documentation
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- [Setup Guide](./SETUP.md) - Full setup instructions and environment variables
+- [Architecture Overview](./docs/ARCHITECTURE.md) - System architecture and design decisions
+- [Folder Structure](./docs/FOLDER-STRUCTURE.md) - Complete file/folder reference
+- [Implementation Summary](./IMPLEMENTATION_SUMMARY.md) - What's built and what's in progress
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Tech Stack
+
+- **Next.js 16** - App Router
+- **React 19** - UI
+- **TypeScript 5** - Type safety
+- **Tailwind CSS 4** - Styling
+- **tRPC 11** - Type-safe API layer
+- **Prisma 6** - ORM (PostgreSQL)
+- **Better Auth** - Authentication
+- **OpenAI** - AI content generation
+- **Stripe** - Subscription billing
+- **AWS S3** - File storage
+- **Upstash Redis** - Rate limiting
 
 ## Deploy on Vercel
 

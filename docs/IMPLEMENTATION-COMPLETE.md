@@ -1,362 +1,142 @@
-# ✅ Implementation Complete - Smartfolio SaaS Architecture
+# Smartfolio -- Implementation Status
 
-## 🎉 What Was Built
+## Status: Infrastructure Complete, UX Re-Architecture In Progress
 
-A **production-ready, enterprise-grade SaaS application** with complete modular architecture for building AI-powered portfolio websites.
-
----
-
-## 📦 Modules Created (Feature-Based Architecture)
-
-### 1. **Authentication Module** (`modules/auth/`)
-- ✅ User authentication hooks (`useAuth`, `useRequireAuth`)
-- ✅ Auth utilities (display name, initials, verification status)
-- ✅ Route constants (public/protected routes)
-- ✅ TypeScript types for User, Session, Auth responses
-
-### 2. **Portfolio Module** (`modules/portfolio/`)
-- ✅ Portfolio CRUD hooks (list, create, update, delete, publish)
-- ✅ Portfolio utilities (slug generation, URL generation, validation)
-- ✅ Constants (themes, limits, section types)
-- ✅ Complete TypeScript types (Portfolio, Section, Analytics)
-
-### 3. **AI Generation Module** (`modules/ai/`)
-- ✅ AI generation hooks (portfolio content, project descriptions, SEO)
-- ✅ Prompt building utilities
-- ✅ Token cost estimation
-- ✅ AI provider configuration (OpenAI, Anthropic, Google)
-
-### 4. **Portfolio Builder Module** (`modules/builder/`)
-- ✅ Builder hooks (useBuilder with add/update/delete blocks)
-- ✅ Template system hooks
-- ✅ Block utilities (icons, labels, default content)
-- ✅ Drag-and-drop types and interfaces
-
-### 5. **Billing Module** (`modules/billing/`)
-- ✅ Subscription hooks (get, cancel, resume)
-- ✅ Stripe checkout and portal sessions
-- ✅ Payment history tracking
-- ✅ Plan features and usage limits
-- ✅ Three-tier pricing (Free, Pro, Enterprise)
+The backend infrastructure and service integrations are built and operational. The frontend is being re-architected from a traditional SaaS dashboard model to a Lovable-style AI-native workspace.
 
 ---
 
-## 🎨 UI Component Library
+## What Is Complete
 
-### Base Components (`components/ui/`)
-- ✅ Button (5 variants, 3 sizes, loading state)
-- ✅ Input (with labels, errors, helper text)
-- ✅ Card (with Header, Title, Content, Footer)
-- ✅ Dialog (modal with customizable sizes)
-- ✅ Dropdown (with items and dividers)
+### Backend Infrastructure
 
-### Layout Components (`components/layouts/`)
-- ✅ DashboardLayout (sidebar navigation, header)
-- ✅ MarketingLayout (public pages, footer)
-- ✅ AuthLayout (centered auth forms)
+| Component | Status | Notes |
+|-----------|--------|-------|
+| tRPC API layer | Complete | 5 routers, 25+ procedures, type-safe |
+| Prisma + PostgreSQL | Complete | 10 models, relations, indexes |
+| Better Auth | Complete | Google, GitHub, email/password |
+| OpenAI integration | Complete | Generation, token tracking, history |
+| Stripe billing | Complete | 3 tiers, webhooks, portal |
+| AWS S3 storage | Complete | Upload, signed URLs, validation |
+| Nodemailer email | Complete | Welcome, subscription, password reset |
+| Upstash rate limiting | Complete | 10 req/10s default |
+| Next.js middleware | Complete | Route protection, auth redirects |
 
----
+### Frontend Foundation
 
-## 🔌 tRPC API Routers (Type-Safe Backend)
+| Component | Status | Notes |
+|-----------|--------|-------|
+| Landing page | Complete | Prompt input, voice, attachments, auth modal |
+| UI component library | Complete | Button, Input, Card, Dialog, Dropdown |
+| Feature module hooks | Complete | auth, portfolio, ai, builder, billing |
+| tRPC provider | Complete | React Query integration |
+| Shared utility functions | Complete | cn(), formatDate, etc. |
+| Shared React hooks | Complete | debounce, localStorage, mediaQuery, clickOutside |
 
-### Created Routers
-1. **User Router** (`server/routers/user.ts`)
-   - Hello query, profile management, user list
+### Database Models
 
-2. **Portfolio Router** (`server/routers/portfolio.ts`)
-   - List, getById, create, update, delete, publish
-
-3. **AI Router** (`server/routers/ai.ts`)
-   - Generate content, portfolio generation, project descriptions, SEO
-
-4. **Builder Router** (`server/routers/builder.ts`)
-   - Get templates, apply template, save blocks, get blocks
-
-5. **Billing Router** (`server/routers/billing.ts`)
-   - Get subscription, create checkout, billing portal, payment history
-
-### Root Router (`server/routers/_app.ts`)
-- ✅ All routers integrated with type inference
-
----
-
-## 🗄️ Database Schema (Prisma)
-
-### Models Created
-1. **Authentication**
-   - User (with all relations)
-   - Account (OAuth providers)
-   - Session (session management)
-   - VerificationToken (email verification)
-
-2. **Portfolio**
-   - Portfolio (main model with SEO, custom domain)
-   - PortfolioSection (content blocks)
-   - PortfolioAnalytics (views, visitors, metrics)
-
-3. **Builder**
-   - Template (portfolio templates with categories)
-
-4. **Billing**
-   - Subscription (plans, Stripe integration)
-   - Payment (transaction history)
-
-5. **AI**
-   - AIGeneration (usage tracking and logs)
-
-### Features
-- ✅ Complete relations between models
-- ✅ Indexes for performance
-- ✅ Cascade deletes for data integrity
-- ✅ JSON fields for flexible data
-- ✅ Unique constraints where needed
+| Model | Status |
+|-------|--------|
+| User (with roles) | Complete |
+| Account (OAuth) | Complete |
+| Session | Complete |
+| Verification | Complete |
+| Portfolio | Complete |
+| PortfolioSection | Complete |
+| PortfolioAnalytics | Complete |
+| Template | Complete |
+| Subscription | Complete |
+| Payment | Complete |
+| AIGeneration | Complete |
 
 ---
 
-## 🔐 Security & Middleware
+## What Is Being Re-Architected
 
-### Next.js Middleware (`middleware.ts`)
-- ✅ Route protection (public vs protected)
-- ✅ Authentication checks
-- ✅ Automatic redirects
-- ✅ Callback URL handling
+The following items are part of the workspace re-architecture. They are not yet built or are being redesigned to fit the new AI-native product model.
 
-### tRPC Middleware (`server/middleware/`)
-- ✅ Rate limiting (structure ready)
-- ✅ Subscription checks for premium features
-- ✅ Admin access checks
-- ✅ Usage limit enforcement
+### Workspace UI
 
-### Protected Procedures
-- ✅ `protectedProcedure` requires authentication
-- ✅ `publicProcedure` for public endpoints
-- ✅ Session included in context
+| Component | Status | Description |
+|-----------|--------|-------------|
+| `/workspace` route | Not started | Two-pane layout: reasoning + preview |
+| WorkspaceLayout | Not started | Top bar, pane container, state management |
+| ReasoningPane | Not started | AI step stream, generation history, prompt input |
+| PreviewPane | Not started | iframe-based live portfolio preview |
+| PortfolioRenderer | Not started | Renders structured JSON into visual portfolio |
+| TopBar | Not started | Logo, portfolio name, publish, upgrade, avatar |
+| ProjectSwitcher | Not started | Dropdown to switch between portfolios |
 
----
+### AI Pipeline Upgrade
 
-## 🪝 Shared Hooks (`hooks/`)
+| Component | Status | Description |
+|-----------|--------|-------------|
+| `generateFullPortfolio()` | Not started | Full structured JSON output (theme, sections, metadata) |
+| Streaming support | Not started | SSE or tRPC subscriptions for step-by-step streaming |
+| Refinement endpoint | Not started | Diff-based partial updates from follow-up prompts |
+| Context carryover | Not started | Session-based conversation history for refinements |
 
-- ✅ `useDebounce` - Debounce values
-- ✅ `useLocalStorage` - Persist to localStorage
-- ✅ `useMediaQuery` - Responsive breakpoints
-- ✅ `useClickOutside` - Detect outside clicks
+### Publish System
 
----
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Publish modal | Not started | One-click publish with slug customization |
+| `/p/[slug]` route | Not started | Standalone published portfolio page |
+| Static generation | Not started | HTML/CSS from portfolio JSON for fast serving |
+| SEO metadata | Not started | Open Graph, structured data on published pages |
 
-## 📚 Documentation Created
+### Inline Editing
 
-1. **[ARCHITECTURE.md](./docs/ARCHITECTURE.md)**
-   - System architecture overview
-   - Naming conventions
-   - Development guidelines
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Click-to-select | Not started | Element selection in preview with edit toolbar |
+| Inline text editing | Not started | contenteditable for text elements |
+| Image replacement | Not started | File picker in preview |
+| Section reordering | Not started | Drag handles on section boundaries |
 
-2. **[FOLDER-STRUCTURE.md](./docs/FOLDER-STRUCTURE.md)**
-   - Complete file structure
-   - Module patterns
-   - Import conventions
-   - Adding new features guide
+### Monetization UX
 
-3. **[DIAGRAMS.md](./docs/DIAGRAMS.md)**
-   - Visual architecture diagrams
-   - Request flow diagrams
-   - Database relationships
-   - Security layers
-
-4. **[QUICK-START.md](./docs/QUICK-START.md)**
-   - 5-minute setup guide
-   - Common tasks
-   - Troubleshooting
-
-5. **[PROJECT-SUMMARY.md](./PROJECT-SUMMARY.md)**
-   - Feature summary
-   - API usage examples
-   - Configuration details
-
-6. **[SETUP.md](./SETUP.md)**
-   - Detailed setup instructions
-   - Usage examples
-   - Environment variables
+| Component | Status | Description |
+|-----------|--------|-------------|
+| Upgrade nudges | Not started | Contextual, non-blocking prompts at limit boundaries |
+| Usage indicator | Not started | Generation count near prompt input |
+| Plan badge | Not started | Current plan shown in top bar |
 
 ---
 
-## 🛠️ Configuration Files
+## What Was Removed (Architecture Decisions)
 
-### Environment (`.env.example`)
-- ✅ Database configuration
-- ✅ Authentication secrets
-- ✅ Stripe keys (test & production)
-- ✅ AI provider keys (OpenAI, Anthropic, Google)
-- ✅ Email service configuration
-- ✅ Analytics setup
-- ✅ File storage (AWS S3)
+The following were part of the original SaaS dashboard model and have been removed from the product direction:
 
-### TypeScript Types (`types/`)
-- ✅ API response types
-- ✅ Common utility types
-- ✅ Centralized type exports
-
-### Utilities (`lib/utils.ts`)
-- ✅ Class name merging (cn)
-- ✅ Date formatting
-- ✅ Text utilities
-- ✅ Clipboard operations
-- ✅ Number formatting
+- **Dashboard layout** (`components/layouts/dashboard-layout.tsx`) -- Sidebar navigation with Dashboard, Portfolios, Builder, Analytics, Billing, Settings links. Replaced by workspace layout.
+- **Dashboard route group** (`app/(dashboard)/`) -- Route group containing `/dashboard`, `/portfolios`, `/builder`, `/analytics`, `/billing`, `/settings`. None of these routes exist in the new model.
+- **Auth route group** (`app/(auth)/`) -- Dedicated sign-in/sign-up pages. Replaced by inline auth modal on landing page.
+- **Standalone settings page** -- Settings are a modal/dropdown within the workspace.
+- **Standalone billing page** -- Billing links to Stripe portal or is a modal.
+- **Standalone analytics page** -- Analytics (if added) will be an overlay within the workspace.
 
 ---
 
-## 🚀 Key Features
+## Route Model (Authoritative)
 
-### ✅ Production Ready
-- Proper error handling
-- Type safety end-to-end
-- Authentication & authorization
-- Rate limiting structure
-- Environment configuration
+| Route | Purpose | Auth | Status |
+|-------|---------|------|--------|
+| `/` | Landing page + entry prompt | No | Built |
+| `/workspace` | AI workspace (two-pane) | Yes | Not started |
+| `/portfolio/[id]` | Deep link to portfolio workspace | Yes | Not started |
+| `/p/[slug]` | Published portfolio (standalone) | No | Not started |
+| `/pricing` | Pricing page | No | Not started |
 
-### ✅ Scalable Architecture
-- Modular feature organization
-- Independent modules
-- Clear separation of concerns
-- Easy to extend
-- Consistent patterns
-
-### ✅ Developer Experience
-- Autocomplete everywhere (TypeScript)
-- Hot module replacement
-- Clear folder structure
-- Comprehensive documentation
-- Code examples included
-
-### ✅ Security
-- Route protection at multiple layers
-- Protected API endpoints
-- Row-level security (userId checks)
-- Session management
-- CSRF protection (Better Auth)
+No other routes exist in the product.
 
 ---
 
-## 📊 Project Statistics
+## Documentation
 
-- **Modules**: 5 feature modules
-- **Components**: 10+ reusable UI components
-- **tRPC Routers**: 5 routers with 25+ procedures
-- **Database Models**: 10 Prisma models
-- **Documentation Pages**: 6 comprehensive guides
-- **Type Definitions**: 50+ TypeScript interfaces
-- **Hooks**: 15+ custom React hooks
-
----
-
-## 🎯 What You Can Build Now
-
-With this architecture, you can easily add:
-
-1. **New Features** - Follow the module pattern
-2. **New API Endpoints** - Add to routers
-3. **New Pages** - Use App Router groups
-4. **New Components** - Extend UI library
-5. **New Integrations** - Add to services/
-
----
-
-## 🔄 Next Steps
-
-### Immediate Tasks
-1. Run `npm run db:push` to create database tables
-2. Configure environment variables
-3. Start development server
-4. Begin building features
-
-### Future Enhancements
-- Add real-time features (WebSockets)
-- Implement file upload (S3)
-- Add email notifications
-- Create admin dashboard
-- Build mobile app
-- Add team collaboration
-
----
-
-## 🎓 Learning Resources
-
-All documentation is in place to help you:
-- Understand the architecture
-- Add new features
-- Customize components
-- Integrate third-party services
-- Deploy to production
-
----
-
-## ✨ Architecture Highlights
-
-### Separation of Concerns
-- **Frontend**: Client components, hooks
-- **Backend**: tRPC routers, services
-- **Database**: Prisma models
-- **Shared**: Types, utilities
-
-### Type Safety
-- tRPC provides end-to-end types
-- No manual API type definitions
-- Autocomplete in IDE
-- Catch errors at compile time
-
-### Modularity
-- Each module is self-contained
-- Minimal cross-module dependencies
-- Easy to understand
-- Easy to test
-- Easy to refactor
-
----
-
-## 🏆 Quality Standards Met
-
-✅ **Code Quality**
-- TypeScript strict mode
-- ESLint configured
-- Consistent naming
-- Clean architecture
-
-✅ **Performance**
-- Database indexes
-- Query optimization ready
-- React Query caching
-- Server-side rendering
-
-✅ **Maintainability**
-- Clear folder structure
-- Comprehensive docs
-- Code examples
-- Consistent patterns
-
-✅ **Security**
-- Authentication required
-- Authorization checks
-- Input validation (Zod)
-- Protected routes
-
----
-
-## 🙌 Summary
-
-You now have a **complete, production-ready SaaS application foundation** with:
-
-- ✅ Modular architecture for easy scaling
-- ✅ Complete authentication system
-- ✅ Portfolio management features
-- ✅ AI integration ready
-- ✅ Visual builder foundation
-- ✅ Stripe billing integration
-- ✅ Comprehensive documentation
-- ✅ Type-safe APIs
-- ✅ Protected routes
-- ✅ Reusable components
-
-**Everything is ready for you to start building features!** 🚀
-
----
-
-Built with ❤️ following enterprise best practices.
+- [Setup Guide](../SETUP.md)
+- [Architecture](./ARCHITECTURE.md)
+- [Folder Structure](./FOLDER-STRUCTURE.md)
+- [Diagrams](./DIAGRAMS.md)
+- [Quick Start](./QUICK-START.md)
+- [Implementation Summary](../IMPLEMENTATION_SUMMARY.md)
+- [Project Summary](../PROJECT-SUMMARY.md)

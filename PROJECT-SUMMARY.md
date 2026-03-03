@@ -1,217 +1,167 @@
-# Smartfolio - Complete Setup Summary
+# Smartfolio -- Project Summary
 
-## ✅ What's Been Configured
+## What Smartfolio Is
 
-### 1. **tRPC** - Type-Safe API Layer
-- **Server Setup**: [server/trpc.ts](server/trpc.ts)
-- **Root Router**: [server/routers/_app.ts](server/routers/_app.ts)
-- **Example Router**: [server/routers/user.ts](server/routers/user.ts)
-- **API Routes**: [app/api/trpc/[trpc]/route.ts](app/api/trpc/[trpc]/route.ts)
-- **Client Provider**: [lib/trpc-provider.tsx](lib/trpc-provider.tsx)
-- **Server Caller**: [server/caller.ts](server/caller.ts)
+Smartfolio is an AI-native developer portfolio generator. It follows the interaction model pioneered by Lovable: the user describes what they want in natural language, and the system generates it live.
 
-### 2. **Prisma** - Database ORM
-- **Schema**: [prisma/schema.prisma](prisma/schema.prisma)
-- **Config**: [prisma.config.ts](prisma.config.ts)
-- **Client Instance**: [lib/prisma.ts](lib/prisma.ts)
-- **Models**: User, Account, Session, VerificationToken
+The core product loop:
 
-### 3. **Better Auth** - Authentication
-- **Server Config**: [lib/auth.ts](lib/auth.ts)
-- **Client Hooks**: [lib/auth-client.ts](lib/auth-client.ts)
-- **API Routes**: [app/api/auth/[...all]/route.ts](app/api/auth/[...all]/route.ts)
-- **Features**: Email/password + OAuth ready
-
-### 4. **Environment Configuration**
-- ✅ `.env` created (git-ignored)
-- ✅ `.env.example` for reference
-- ✅ `.gitignore` updated
-
-### 5. **Project Structure**
 ```
-smartfolio/
-├── app/
-│   ├── api/
-│   │   ├── auth/[...all]/route.ts    # Better Auth endpoints
-│   │   └── trpc/[trpc]/route.ts      # tRPC endpoints
-│   ├── layout.tsx                     # Root layout with TRPCProvider
-│   └── page.tsx                       # Demo page
-├── server/
-│   ├── routers/
-│   │   ├── _app.ts                    # Root router
-│   │   └── user.ts                    # User router (example)
-│   ├── trpc.ts                        # tRPC initialization
-│   └── caller.ts                      # Server-side caller
-├── lib/
-│   ├── auth.ts                        # Better Auth config
-│   ├── auth-client.ts                 # Auth client hooks
-│   ├── prisma.ts                      # Prisma client
-│   └── trpc-provider.tsx              # tRPC React provider
-├── prisma/
-│   └── schema.prisma                  # Database schema
-├── .env                               # Environment variables (git-ignored)
-├── .env.example                       # Env template
-├── prisma.config.ts                   # Prisma 7 config
-└── SETUP.md                           # Documentation
+Prompt --> Generate --> Refine --> Publish
 ```
 
-## 📦 Installed Packages
+There is no traditional SaaS dashboard. No sidebar navigation. No settings pages. The AI workspace IS the product.
 
-### Production Dependencies
-- `@trpc/server@next` - tRPC server
-- `@trpc/client@next` - tRPC client
-- `@trpc/react-query@next` - tRPC React hooks
-- `@trpc/next@next` - tRPC Next.js adapter
-- `@tanstack/react-query` - Data fetching library
-- `@prisma/client` - Prisma client
-- `better-auth` - Authentication library
-- `zod` - Schema validation
-- `superjson` - Data serialization
+---
 
-### Dev Dependencies
-- `prisma` - Prisma CLI
-- `dotenv` - Environment variables
+## Product Philosophy
 
-## 🎯 Next Steps
+### AI-First, Not Feature-First
 
-### 1. Set up PostgreSQL Database
-Update your `.env` file with your database connection:
-```env
-DATABASE_URL="postgresql://username:password@localhost:5432/smartfolio?schema=public"
-```
+The user's primary interaction is typing a prompt. Everything else -- authentication, billing, settings -- is secondary and surfaced only when needed.
 
-### 2. Push Schema to Database
-```bash
-npm run db:push
-```
+### Workspace-First, Not Dashboard-First
 
-### 3. Start Development Server
-```bash
-npm run dev
-```
+When the user opens Smartfolio, they see one thing: a prompt input. After generating, they see two things: the AI reasoning stream and a live preview of their portfolio. That's the entire product surface.
 
-### 4. Visit Your App
-Open [http://localhost:3000](http://localhost:3000) to see the demo page showing tRPC is working.
+### Prompt-Driven, Not Form-Driven
 
-## 🔑 Key Features
+Users don't fill out forms to create portfolios. They describe what they want:
 
-### Type Safety End-to-End
-```typescript
-// Server (server/routers/user.ts)
-getProfile: protectedProcedure.query(async ({ ctx }) => {
-  return ctx.prisma.user.findUnique({ where: { id: ctx.session.user.id } })
-})
+- "Create a sleek dark frontend developer portfolio with React projects"
+- "Make a creative portfolio for a UX designer with case studies"
+- "Build a minimal portfolio with just my GitHub projects and a contact form"
 
-// Client (app/page.tsx)
-const { data } = trpc.user.getProfile.useQuery()
-// data is fully typed! No manual type definitions needed
-```
+The AI interprets the prompt and produces a complete portfolio.
 
-### Protected & Public Procedures
-```typescript
-// Anyone can call
-publicProcedure.query(...)
+### Iterative Refinement, Not One-Shot Generation
 
-// Requires authentication
-protectedProcedure.query(({ ctx }) => {
-  // ctx.session.user is guaranteed to exist
-})
-```
+After the initial generation, users refine via follow-up prompts:
 
-### Server Components Support
-```typescript
-import { createCaller } from '@/server/caller'
-import { createTRPCContext } from '@/server/trpc'
+- "Make the hero section gradient blue to purple"
+- "Add a testimonials section"
+- "Change the font to something more modern"
 
-const context = await createTRPCContext({ req: new Request('http://localhost') })
-const caller = createCaller(context)
-const data = await caller.user.list({ limit: 10 })
-```
+Each refinement applies a differential update -- not a full regeneration.
 
-### Authentication Hooks
-```typescript
-import { signIn, signOut, useSession } from '@/lib/auth-client'
+---
 
-const { data: session } = useSession()
-await signIn.email({ email: 'user@example.com', password: 'password' })
-await signOut()
-```
+## How It Works
 
-## 📝 Available Scripts
+### User Flow
 
-```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
-npm run db:generate  # Generate Prisma Client
-npm run db:push      # Push schema to database (dev)
-npm run db:migrate   # Create and apply migrations (prod)
-npm run db:studio    # Open Prisma Studio (database GUI)
-```
+1. User lands on `/` and sees the prompt input
+2. User types a portfolio description
+3. Auth modal triggers on first generation (Google/GitHub OAuth)
+4. User is redirected to `/workspace` with their prompt
+5. The workspace shows:
+   - Left pane (~35-40%): AI reasoning stream with step-by-step generation progress
+   - Right pane (~60-65%): Live portfolio preview rendering in real-time
+6. Prompt input persists at the bottom of the left pane for refinements
+7. User refines iteratively until satisfied
+8. User clicks "Publish" in the top bar
+9. Portfolio goes live at `/p/[slug]`
 
-## 🏗️ Architecture Highlights
+### Generation Pipeline
 
-### Modular Router System
-Each feature gets its own router in `server/routers/`:
-```typescript
-// server/routers/posts.ts
-export const postRouter = createTRPCRouter({
-  getAll: publicProcedure.query(...),
-  create: protectedProcedure.mutation(...),
-})
+1. User prompt is sent to the backend
+2. AI generates structured portfolio JSON (theme, sections, content, metadata)
+3. Generation steps stream to the reasoning pane in real-time
+4. The portfolio renderer takes the JSON and renders it in the preview iframe
+5. Portfolio record is created/updated in the database automatically
 
-// server/routers/_app.ts
-export const appRouter = createTRPCRouter({
-  user: userRouter,
-  post: postRouter,  // Add new routers here
-})
-```
+### Route Model
 
-### Scalable Database Schema
-Prisma schema is ready for Better Auth with proper relations:
-- User ← Account (for OAuth providers)
-- User ← Session (for session management)
-- VerificationToken (for email verification)
+| Route | Purpose |
+|-------|---------|
+| `/` | Landing page with prompt input |
+| `/workspace` | AI workspace (reasoning + preview) |
+| `/portfolio/[id]` | Deep link to specific portfolio workspace |
+| `/p/[slug]` | Public published portfolio (standalone) |
+| `/pricing` | Plan comparison and upgrade |
 
-### Secure by Default
-- Environment variables required
-- Protected procedures enforce authentication
-- Session management built-in
-- Ready for OAuth providers (Google, GitHub, etc.)
+No additional routes. Settings and billing are modal-based within the workspace.
 
-## 🔧 Configuration Files
+---
 
-- ✅ [tsconfig.json](tsconfig.json) - TypeScript config
-- ✅ [next.config.ts](next.config.ts) - Next.js config
-- ✅ [package.json](package.json) - Dependencies & scripts
-- ✅ [prisma.config.ts](prisma.config.ts) - Prisma 7 config
-- ✅ [.env](.env) - Environment variables (git-ignored)
-- ✅ [.gitignore](.gitignore) - Updated with Prisma entries
+## Infrastructure Built
 
-## 📚 Documentation
+### Backend
 
-Full usage guide and examples available in [SETUP.md](SETUP.md)
+| System | Technology | Status |
+|--------|-----------|--------|
+| API Layer | tRPC 11 (type-safe) | Operational |
+| Database | Prisma 6 + PostgreSQL (Neon) | Operational |
+| Authentication | Better Auth (Google, GitHub, email) | Operational |
+| AI Generation | OpenAI (GPT-3.5/GPT-4) | Operational (snippet mode; full portfolio mode pending) |
+| Billing | Stripe (3-tier subscriptions) | Operational |
+| File Storage | AWS S3 | Operational |
+| Rate Limiting | Upstash Redis | Operational |
+| Email | Nodemailer SMTP | Operational |
 
-## ✨ What Makes This Setup Special
+### Frontend
 
-1. **Modern Stack**: Using latest versions with Prisma 7 config
-2. **Type Safety**: Full type inference from database to UI
-3. **Modular**: Easy to add new features and routers
-4. **Production Ready**: Proper error handling and logging
-5. **Developer Experience**: Great DX with hot reload and type checking
-6. **Scalable**: Designed to grow with your application
+| Component | Status |
+|-----------|--------|
+| Landing page with prompt input | Built |
+| Voice input (Web Speech API) | Built |
+| File attachments | Built |
+| Inline auth modal | Built |
+| UI component library (Button, Input, Card, Dialog, Dropdown) | Built |
+| AI workspace (two-pane layout) | Not yet built |
+| Portfolio renderer | Not yet built |
+| Refinement prompt system | Not yet built |
+| Inline visual editing | Not yet built |
+| Publish flow | Not yet built |
+| Upgrade trigger components | Not yet built |
 
-## 🚀 Ready to Code!
+### Feature Modules
 
-Your Smartfolio app is fully configured and ready for development. All major systems are in place:
+Each module in `modules/` provides React hooks, TypeScript types, utility functions, and constants:
 
-✅ Database ORM (Prisma)  
-✅ Type-safe APIs (tRPC)  
-✅ Authentication (Better Auth)  
-✅ Environment config  
-✅ Example routers and procedures  
+- **auth** -- session management, auth state
+- **portfolio** -- CRUD operations, publish
+- **ai** -- generation hooks, usage tracking
+- **builder** -- template system, block management
+- **billing** -- subscription state, checkout, payment history
 
-Start building your features by adding new routers in `server/routers/` and new database models in `prisma/schema.prisma`.
+### Database Models
 
-Happy coding! 🎉
+User, Account, Session, Verification, Portfolio, PortfolioSection, PortfolioAnalytics, Template, Subscription, Payment, AIGeneration
+
+---
+
+## Usage Limits
+
+| Feature | FREE | PRO | ENTERPRISE |
+|---------|------|-----|------------|
+| Portfolios | 1 | 10 | 100 |
+| AI Generations | 10/month | 100/month | 1,000/month |
+| Tokens | 10,000 | 50,000 | 200,000 |
+| Templates | Basic | Premium | All + Custom |
+| Badge removal | No | Yes | Yes |
+
+---
+
+## What Comes Next
+
+The infrastructure is built. The re-architecture focus is now on:
+
+1. Building the workspace UI (two-pane layout)
+2. Upgrading AI from snippet generation to full structured portfolio output
+3. Building the portfolio renderer
+4. Implementing the refinement system
+5. Adding inline visual editing
+6. Integrating the publish flow
+7. Wiring upgrade triggers at natural friction points
+8. Production hardening (error boundaries, auto-save, caching, monitoring)
+
+---
+
+## Documentation
+
+- [Setup Guide](./SETUP.md)
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Folder Structure](./docs/FOLDER-STRUCTURE.md)
+- [Diagrams](./docs/DIAGRAMS.md)
+- [Implementation Summary](./IMPLEMENTATION_SUMMARY.md)

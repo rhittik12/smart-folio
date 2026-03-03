@@ -1,12 +1,38 @@
-# Smartfolio - Setup Complete! 🚀
+# Smartfolio -- Setup Guide
 
-This project includes:
-- **Next.js 16** with App Router
-- **tRPC** for type-safe APIs
-- **Prisma** ORM with PostgreSQL
-- **Better Auth** for authentication
-- **TypeScript** for type safety
-- **Tailwind CSS** for styling
+## Overview
+
+Smartfolio is an AI-native developer portfolio generator. The user experience is:
+
+1. Land on `/` -- see the prompt input
+2. Type a portfolio description (e.g., "Create a dark minimalist portfolio for a React developer")
+3. Auth modal triggers on first generation attempt
+4. Authenticate via Google or GitHub
+5. Redirect to `/workspace` with prompt carried over
+6. AI generates a complete portfolio with live preview
+7. Refine via follow-up prompts
+8. Publish to `/p/[slug]`
+
+There is no dashboard. The workspace is the product.
+
+---
+
+## Tech Stack
+
+- **Next.js 16** -- App Router
+- **React 19** -- UI
+- **TypeScript 5** -- Type safety
+- **Tailwind CSS 4** -- Styling
+- **tRPC 11** -- Type-safe API layer
+- **Prisma 6** -- ORM (PostgreSQL)
+- **Better Auth** -- Authentication (Google, GitHub, email/password)
+- **OpenAI** -- AI content generation
+- **Stripe** -- Subscription billing
+- **AWS S3** -- File storage
+- **Upstash Redis** -- Rate limiting
+- **Nodemailer** -- Transactional email
+
+---
 
 ## Project Structure
 
@@ -15,230 +41,193 @@ smartfolio/
 ├── app/                        # Next.js App Router
 │   ├── api/
 │   │   ├── auth/[...all]/     # Better Auth API routes
-│   │   └── trpc/[trpc]/       # tRPC API routes
-│   ├── layout.tsx             # Root layout with providers
-│   └── page.tsx               # Home page
-├── server/                     # Backend (tRPC)
+│   │   ├── trpc/[trpc]/       # tRPC API routes
+│   │   └── webhooks/stripe/   # Stripe webhook handler
+│   ├── layout.tsx             # Root layout with TRPCProvider
+│   └── page.tsx               # Landing page with prompt input
+├── server/                     # Backend
 │   ├── routers/               # tRPC routers
 │   │   ├── _app.ts           # Root router
-│   │   └── user.ts           # User router
+│   │   ├── user.ts           # User management
+│   │   ├── portfolio.ts      # Portfolio operations
+│   │   ├── ai.ts             # AI generation
+│   │   ├── builder.ts        # Template/block operations
+│   │   └── billing.ts        # Stripe billing
+│   ├── services/              # Business logic
+│   │   ├── ai.ts             # OpenAI integration
+│   │   ├── stripe.ts         # Stripe integration
+│   │   ├── email.ts          # Email sending
+│   │   ├── storage.ts        # S3 file storage
+│   │   └── index.ts          # Service container
+│   ├── middleware/            # Rate limiting, plan checks
 │   ├── trpc.ts               # tRPC initialization
 │   └── caller.ts             # Server-side caller
-├── lib/                        # Utilities
+├── modules/                    # Feature modules
+│   ├── auth/                  # Auth hooks, types, utils
+│   ├── portfolio/             # Portfolio hooks, types, utils
+│   ├── ai/                    # AI generation hooks, types
+│   ├── builder/               # Builder hooks, types
+│   └── billing/               # Billing hooks, types
+├── components/                 # Shared UI
+│   ├── ui/                    # Button, Input, Card, Dialog, Dropdown
+│   └── layouts/               # Layout components
+├── lib/                        # Core utilities
 │   ├── auth.ts               # Better Auth server config
 │   ├── auth-client.ts        # Better Auth client
-│   ├── prisma.ts             # Prisma client
-│   └── trpc-provider.tsx     # tRPC React provider
+│   ├── prisma.ts             # Prisma client singleton
+│   ├── trpc-provider.tsx     # tRPC React provider
+│   └── utils.ts              # Shared helpers
 ├── prisma/
 │   └── schema.prisma         # Database schema
-├── .env                      # Environment variables (git-ignored)
-└── .env.example              # Environment template
+├── middleware.ts              # Next.js route protection
+├── .env                       # Environment variables (git-ignored)
+└── .env.example               # Environment template
 ```
+
+---
 
 ## Getting Started
 
-### 1. Configure Database
+### 1. Install Dependencies
 
-Update `.env` with your PostgreSQL connection:
+```bash
+npm install
+```
+
+### 2. Configure Environment
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your values:
+
 ```env
+# Required
 DATABASE_URL="postgresql://user:password@localhost:5432/smartfolio?schema=public"
 BETTER_AUTH_SECRET="your-secret-key-min-32-characters-long"
 BETTER_AUTH_URL="http://localhost:3000"
+
+# OAuth (at least one recommended)
+GOOGLE_CLIENT_ID="..."
+GOOGLE_CLIENT_SECRET="..."
+GITHUB_CLIENT_ID="..."
+GITHUB_CLIENT_SECRET="..."
+
+# AI
+OPENAI_API_KEY="sk-..."
+
+# Stripe
+STRIPE_SECRET_KEY="sk_test_..."
+STRIPE_WEBHOOK_SECRET="whsec_..."
+STRIPE_PRICE_ID_PRO="price_..."
+STRIPE_PRICE_ID_ENTERPRISE="price_..."
+
+# AWS S3
+AWS_ACCESS_KEY_ID="..."
+AWS_SECRET_ACCESS_KEY="..."
+AWS_S3_BUCKET="smartfolio-uploads"
+AWS_REGION="us-east-1"
+
+# Rate Limiting
+UPSTASH_REDIS_REST_URL="https://..."
+UPSTASH_REDIS_REST_TOKEN="..."
+
+# Email (Optional)
+SMTP_HOST="smtp.gmail.com"
+SMTP_USER="..."
+SMTP_PASS="..."
+
+# Application
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
 ```
 
-### 2. Run Database Migrations
+### 3. Setup Database
 
 ```bash
 npx prisma generate
 npx prisma db push
 ```
 
-### 3. Start Development Server
+### 4. Start Development Server
 
 ```bash
 npm run dev
 ```
 
-## Usage Examples
+Open `http://localhost:3000`. You should see the landing page with the AI prompt input.
 
-### Client Components (React Hooks)
+### 5. Test the Flow
 
-```tsx
-'use client'
-import { trpc } from '@/lib/trpc-provider'
+1. Type a prompt in the input box (e.g., "Create a portfolio for a fullstack developer")
+2. Click the send button
+3. The auth modal should appear (since you're not logged in)
+4. Sign in with Google or GitHub
+5. After auth, you'll continue into the generation flow
 
-export function UserProfile() {
-  const { data, isLoading } = trpc.user.getProfile.useQuery()
-  const updateProfile = trpc.user.updateProfile.useMutation()
+---
 
-  if (isLoading) return <div>Loading...</div>
-
-  return (
-    <div>
-      <h1>{data?.name}</h1>
-      <button onClick={() => updateProfile.mutate({ name: 'New Name' })}>
-        Update Name
-      </button>
-    </div>
-  )
-}
-```
-
-### Server Components
-
-```tsx
-import { createCaller } from '@/server/caller'
-import { createTRPCContext } from '@/server/trpc'
-
-export default async function UsersPage() {
-  const context = await createTRPCContext({ req: new Request('http://localhost') })
-  const caller = createCaller(context)
-  
-  const users = await caller.user.list({ limit: 10 })
-  
-  return (
-    <div>
-      {users.users.map(user => (
-        <div key={user.id}>{user.name}</div>
-      ))}
-    </div>
-  )
-}
-```
-
-### Authentication
-
-```tsx
-'use client'
-import { signIn, signOut, useSession } from '@/lib/auth-client'
-
-export function AuthButton() {
-  const { data: session } = useSession()
-
-  if (session) {
-    return <button onClick={() => signOut()}>Sign Out</button>
-  }
-  
-  return (
-    <button onClick={() => signIn.email({ 
-      email: 'user@example.com', 
-      password: 'password' 
-    })}>
-      Sign In
-    </button>
-  )
-}
-```
-
-## Adding New Features
-
-### Create a New Router
-
-1. Create a new file in `server/routers/`, e.g., `posts.ts`:
-```typescript
-import { z } from 'zod'
-import { createTRPCRouter, publicProcedure, protectedProcedure } from '../trpc'
-
-export const postRouter = createTRPCRouter({
-  getAll: publicProcedure.query(async ({ ctx }) => {
-    return ctx.prisma.post.findMany()
-  }),
-  
-  create: protectedProcedure
-    .input(z.object({ title: z.string(), content: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      return ctx.prisma.post.create({
-        data: {
-          ...input,
-          authorId: ctx.session.user.id,
-        },
-      })
-    }),
-})
-```
-
-2. Add it to the root router in `server/routers/_app.ts`:
-```typescript
-import { postRouter } from './post'
-
-export const appRouter = createTRPCRouter({
-  user: userRouter,
-  post: postRouter, // Add this
-})
-```
-
-### Add Database Models
-
-1. Update `prisma/schema.prisma`:
-```prisma
-model Post {
-  id        String   @id @default(cuid())
-  title     String
-  content   String
-  authorId  String
-  author    User     @relation(fields: [authorId], references: [id])
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  
-  @@index([authorId])
-}
-```
-
-2. Update User model to include the relation:
-```prisma
-model User {
-  // ... existing fields
-  posts     Post[]
-}
-```
-
-3. Run migrations:
-```bash
-npx prisma generate
-npx prisma db push
-```
-
-## Environment Variables
+## Environment Variables Reference
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `DATABASE_URL` | PostgreSQL connection string | ✅ |
-| `BETTER_AUTH_SECRET` | Secret for auth (min 32 chars) | ✅ |
-| `BETTER_AUTH_URL` | Base URL of your app | ✅ |
-| `GOOGLE_CLIENT_ID` | Google OAuth client ID | ❌ |
-| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | ❌ |
-| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | ❌ |
-| `GITHUB_CLIENT_SECRET` | GitHub OAuth secret | ❌ |
+| `DATABASE_URL` | PostgreSQL connection string | Yes |
+| `BETTER_AUTH_SECRET` | Auth secret (min 32 chars) | Yes |
+| `BETTER_AUTH_URL` | Base URL of application | Yes |
+| `GOOGLE_CLIENT_ID` | Google OAuth client ID | No |
+| `GOOGLE_CLIENT_SECRET` | Google OAuth secret | No |
+| `GITHUB_CLIENT_ID` | GitHub OAuth client ID | No |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth secret | No |
+| `OPENAI_API_KEY` | OpenAI API key | Yes |
+| `STRIPE_SECRET_KEY` | Stripe secret key | Yes |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret | Yes |
+| `STRIPE_PRICE_ID_PRO` | Stripe price ID for Pro plan | Yes |
+| `STRIPE_PRICE_ID_ENTERPRISE` | Stripe price ID for Enterprise plan | Yes |
+| `AWS_ACCESS_KEY_ID` | AWS access key | Yes |
+| `AWS_SECRET_ACCESS_KEY` | AWS secret key | Yes |
+| `AWS_S3_BUCKET` | S3 bucket name | Yes |
+| `AWS_REGION` | AWS region | Yes |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis URL | Yes |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis token | Yes |
+| `SMTP_HOST` | SMTP server host | No |
+| `SMTP_USER` | SMTP username | No |
+| `SMTP_PASS` | SMTP password | No |
+| `NEXT_PUBLIC_APP_URL` | Public-facing app URL | Yes |
+
+---
 
 ## Scripts
 
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run start` - Start production server
-- `npm run lint` - Run ESLint
-- `npx prisma studio` - Open Prisma Studio (database GUI)
-- `npx prisma generate` - Generate Prisma Client
-- `npx prisma db push` - Push schema to database
-- `npx prisma migrate dev` - Create and apply migrations
+```bash
+npm run dev          # Start development server
+npm run build        # Build for production
+npm run start        # Start production server
+npm run lint         # Run ESLint
+npx prisma generate  # Generate Prisma Client
+npx prisma db push   # Push schema to database
+npx prisma studio    # Open Prisma Studio (database GUI)
+npx prisma migrate dev  # Create and apply migrations
+```
 
-## Key Features
+---
 
-✅ **Type Safety**: End-to-end type safety from database to frontend  
-✅ **Authentication**: Email/password + OAuth providers ready  
-✅ **Database ORM**: Prisma with PostgreSQL  
-✅ **API Layer**: tRPC for type-safe APIs  
-✅ **Modular Structure**: Easy to extend and maintain  
-✅ **Server & Client**: Works in both Server and Client Components  
+## Routes
 
-## Next Steps
+| Route | Auth Required | Description |
+|-------|---------------|-------------|
+| `/` | No | Landing page with prompt input and auth modal |
+| `/workspace` | Yes | AI workspace (two-pane: reasoning + preview) |
+| `/portfolio/[id]` | Yes | Deep link to a specific portfolio workspace |
+| `/p/[slug]` | No | Public published portfolio |
+| `/pricing` | No | Pricing and plan comparison |
 
-1. Set up your PostgreSQL database
-2. Run `npx prisma db push` to create tables
-3. Start the dev server with `npm run dev`
-4. Begin building your features!
+Settings and billing management are accessed via modals/dropdowns inside the workspace, not as separate routes.
 
-For more information:
-- [tRPC Docs](https://trpc.io)
-- [Prisma Docs](https://prisma.io)
-- [Better Auth Docs](https://better-auth.com)
-- [Next.js Docs](https://nextjs.org)
+---
+
+## Further Reading
+
+- [Architecture Overview](./docs/ARCHITECTURE.md)
+- [Folder Structure](./docs/FOLDER-STRUCTURE.md)
+- [Diagrams](./docs/DIAGRAMS.md)
+- [Implementation Summary](./IMPLEMENTATION_SUMMARY.md)
