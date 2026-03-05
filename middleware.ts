@@ -1,21 +1,22 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-// Define public routes that don't require authentication
+// Routes that are always accessible without auth — no session check at all
 const publicRoutes = [
-  '/',
   '/pricing',
   '/about',
   '/contact',
-  '/sign-in',
-  '/sign-up',
+  '/p',              // Published portfolios: /p/[slug]
   '/forgot-password',
   '/reset-password',
   '/verify-email',
 ]
 
-// Define routes that should redirect to home if authenticated
-const authRoutes = [
+// Routes that redirect authenticated users to /workspace
+// but remain accessible to unauthenticated users
+const authRedirectRoutes = [
+  '/',
+  '/login',
   '/sign-in',
   '/sign-up',
 ]
@@ -44,39 +45,54 @@ async function getSession(request: NextRequest): Promise<boolean> {
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // Skip API and static routes — no auth gating needed
+  // Redirect Better Auth error page to landing page with login modal
+  if (pathname === '/api/auth/error') {
+    const dest = new URL('/', request.url)
+    dest.searchParams.set('auth', 'login')
+    const error = request.nextUrl.searchParams.get('error')
+    if (error) dest.searchParams.set('authError', error)
+    return NextResponse.redirect(dest)
+  }
+
+  // Skip API and static routes
   if (pathname.startsWith('/api') || pathname.startsWith('/_next')) {
     return NextResponse.next()
   }
 
-  const isPublicRoute = publicRoutes.some(route => isRouteMatch(pathname, route))
-  const isAuthRoute = authRoutes.some(route => isRouteMatch(pathname, route))
+  const isPublic = publicRoutes.some(route => isRouteMatch(pathname, route))
+  const isAuthRedirect = authRedirectRoutes.some(route => isRouteMatch(pathname, route))
 
-  // Public routes that aren't auth routes need no session check at all
-  if (isPublicRoute && !isAuthRoute) {
+  // Purely public routes — no session check needed
+  if (isPublic) {
     return NextResponse.next()
   }
 
-  // Validate session via Better Auth API (runs on Node.js, has Prisma access).
-  // Only called when the route actually requires knowing auth state:
-  // protected routes and auth routes (to redirect logged-in users away).
+  // Auth-redirect routes and protected routes both need a session check
   const hasValidSession = await getSession(request)
 
-  if (hasValidSession && isAuthRoute) {
-    return NextResponse.redirect(new URL('/', request.url))
+  // Authenticated user on /, /sign-in, /sign-up → send to workspace
+  // But allow if ?auth= param is present (explicit login/signup request)
+  if (hasValidSession && isAuthRedirect) {
+    const authParam = request.nextUrl.searchParams.get('auth')
+    if (!authParam) {
+      return NextResponse.redirect(new URL('/workspace', request.url))
+    }
   }
 
-  if (isPublicRoute) {
+  // Unauthenticated user on /, /sign-in, /sign-up → allow (landing page)
+  if (isAuthRedirect) {
     return NextResponse.next()
   }
 
+  // Protected route without session → redirect to login modal with callback
   if (!hasValidSession) {
-    const signInUrl = new URL('/', request.url)
-    signInUrl.searchParams.set('auth', 'login')
-    signInUrl.searchParams.set('callbackUrl', pathname)
-    return NextResponse.redirect(signInUrl)
+    const loginUrl = new URL('/', request.url)
+    loginUrl.searchParams.set('auth', 'login')
+    loginUrl.searchParams.set('callbackUrl', pathname)
+    return NextResponse.redirect(loginUrl)
   }
 
+  // Authenticated user on protected route → allow
   return NextResponse.next()
 }
 
@@ -87,7 +103,7 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public folder
+     * - public folder assets
      */
     '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
