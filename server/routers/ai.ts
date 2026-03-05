@@ -19,9 +19,9 @@ export const aiRouter = createTRPCRouter({
         maxTokens: z.number().optional(),
       })
     )
-.mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const aiService = getServiceContainer().getAIService()
-      
+
       return await aiService.generate({
         type: input.type,
         prompt: input.prompt,
@@ -42,9 +42,9 @@ export const aiRouter = createTRPCRouter({
         tone: z.enum(['professional', 'casual', 'creative']).optional(),
       })
     )
-.mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const aiService = getServiceContainer().getAIService()
-      
+
       return await aiService.generatePortfolio({
         ...input,
         userId: ctx.session.user.id,
@@ -61,9 +61,9 @@ export const aiRouter = createTRPCRouter({
         impact: z.string().optional(),
       })
     )
-.mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const aiService = getServiceContainer().getAIService()
-      
+
       return await aiService.generateProjectDescription({
         ...input,
         userId: ctx.session.user.id,
@@ -79,26 +79,26 @@ export const aiRouter = createTRPCRouter({
         specialties: z.array(z.string()),
       })
     )
-.mutation(async ({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const aiService = getServiceContainer().getAIService()
-      
+
       return await aiService.generateSEO({
         ...input,
         userId: ctx.session.user.id,
       })
     }),
 
-// Get AI generation history
+  // Get AI generation history
   getHistory: protectedProcedure.query(async ({ ctx }) => {
     const aiService = getServiceContainer().getAIService()
-    
+
     return await aiService.getHistory(ctx.session.user.id)
   }),
 
   // Get usage stats
   getUsageStats: protectedProcedure.query(async ({ ctx }) => {
     const aiService = getServiceContainer().getAIService()
-    
+
     return await aiService.getUsageStats(ctx.session.user.id)
   }),
 })

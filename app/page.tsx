@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useCallback, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
-import { authClient } from "@/lib/auth-client";
+import { Suspense, useState, useRef, useCallback, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { authClient, useSession } from "@/lib/auth-client";
 
 const MAX_WORDS = 500;
 
@@ -56,7 +56,7 @@ function getSpeechRecognitionCtor(): (new () => SpeechRecognitionInstance) | und
     | undefined;
 }
 
-export default function Home() {
+function HomeContent() {
   const [text, setText] = useState("");
   const [files, setFiles] = useState<File[]>([]);
   const [isRecording, setIsRecording] = useState(false);
@@ -70,8 +70,12 @@ export default function Home() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const baseTextRef = useRef("");
   const textRef = useRef(text);
-  textRef.current = text;
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { data: session } = useSession();
 
   const wordCount = countWords(text);
 
@@ -210,6 +214,10 @@ export default function Home() {
     if (authParam === "login" || authParam === "signup") {
       openModal(authParam);
     }
+    const authError = searchParams.get("authError");
+    if (authError) {
+      setSocialError("Sign-in failed. Please try again.");
+    }
   }, [searchParams, openModal]);
 
   const handleSocialSignIn = useCallback(async (provider: "google" | "github") => {
@@ -217,7 +225,7 @@ export default function Home() {
     setSocialError(null);
     setSocialLoading(provider);
     try {
-      const callbackUrl = searchParams.get("callbackUrl") || "/";
+      const callbackUrl = searchParams.get("callbackUrl") || "/workspace";
       await authClient.signIn.social({
         provider,
         callbackURL: callbackUrl,
@@ -227,6 +235,22 @@ export default function Home() {
       setSocialLoading(null);
     }
   }, [searchParams, socialLoading]);
+
+  const handleGenerate = useCallback(() => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    // Persist the prompt so the workspace can restore it
+    sessionStorage.setItem("pendingPrompt", trimmed);
+
+    if (session?.user) {
+      // Already authenticated — go straight to workspace
+      router.push("/workspace");
+    } else {
+      // Not authenticated — open login modal, then redirect to workspace
+      openModal("login");
+    }
+  }, [text, session, router, openModal]);
 
   return (
     <div className="relative min-h-screen bg-gray-950 text-white overflow-hidden">
@@ -426,9 +450,8 @@ export default function Home() {
               {/* Right: Word count, Plan, Voice, Send */}
               <div className="flex items-center gap-2 sm:gap-3">
                 <span
-                  className={`text-xs tabular-nums sm:text-sm ${
-                    wordCount >= MAX_WORDS ? "text-red-400" : "text-gray-500"
-                  }`}
+                  className={`text-xs tabular-nums sm:text-sm ${wordCount >= MAX_WORDS ? "text-red-400" : "text-gray-500"
+                    }`}
                 >
                   {wordCount} / {MAX_WORDS} words
                 </span>
@@ -442,11 +465,10 @@ export default function Home() {
                   type="button"
                   aria-label={isRecording ? "Stop recording" : "Voice input"}
                   onClick={toggleRecording}
-                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                    isRecording
+                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${isRecording
                       ? "text-red-400"
                       : "text-gray-400 hover:text-white"
-                  }`}
+                    }`}
                 >
                   {isRecording && (
                     <span className="absolute inset-0 animate-ping rounded-lg bg-red-500/20" />
@@ -488,6 +510,7 @@ export default function Home() {
                 <button
                   type="button"
                   aria-label="Send message"
+                  onClick={handleGenerate}
                   className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-gray-950 transition-colors hover:bg-gray-200"
                 >
                   <svg
@@ -515,20 +538,18 @@ export default function Home() {
       {/* Auth Modal */}
       {isModalOpen && (
         <div
-          className={`fixed inset-0 z-[100] flex items-center justify-center px-4 backdrop-blur-sm transition-colors duration-200 ${
-            isModalVisible ? "bg-black/60" : "bg-black/0"
-          }`}
+          className={`fixed inset-0 z-[100] flex items-center justify-center px-4 backdrop-blur-sm transition-colors duration-200 ${isModalVisible ? "bg-black/60" : "bg-black/0"
+            }`}
           onClick={closeModal}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label={modalMode === "login" ? "Log in" : "Sign up"}
-            className={`w-full max-w-md rounded-2xl bg-neutral-900 p-6 shadow-2xl transition-all duration-200 sm:p-8 ${
-              isModalVisible
+            className={`w-full max-w-md rounded-2xl bg-neutral-900 p-6 shadow-2xl transition-all duration-200 sm:p-8 ${isModalVisible
                 ? "scale-100 opacity-100"
                 : "scale-95 opacity-0"
-            }`}
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
@@ -678,5 +699,13 @@ export default function Home() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function Home() {
+  return (
+    <Suspense>
+      <HomeContent />
+    </Suspense>
   );
 }
