@@ -70,7 +70,9 @@ function HomeContent() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const baseTextRef = useRef("");
   const textRef = useRef(text);
-  textRef.current = text;
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
   const searchParams = useSearchParams();
   const router = useRouter();
   const { data: session } = useSession();
@@ -448,9 +450,8 @@ function HomeContent() {
               {/* Right: Word count, Plan, Voice, Send */}
               <div className="flex items-center gap-2 sm:gap-3">
                 <span
-                  className={`text-xs tabular-nums sm:text-sm ${
-                    wordCount >= MAX_WORDS ? "text-red-400" : "text-gray-500"
-                  }`}
+                  className={`text-xs tabular-nums sm:text-sm ${wordCount >= MAX_WORDS ? "text-red-400" : "text-gray-500"
+                    }`}
                 >
                   {wordCount} / {MAX_WORDS} words
                 </span>
@@ -464,11 +465,10 @@ function HomeContent() {
                   type="button"
                   aria-label={isRecording ? "Stop recording" : "Voice input"}
                   onClick={toggleRecording}
-                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
-                    isRecording
+                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${isRecording
                       ? "text-red-400"
                       : "text-gray-400 hover:text-white"
-                  }`}
+                    }`}
                 >
                   {isRecording && (
                     <span className="absolute inset-0 animate-ping rounded-lg bg-red-500/20" />
@@ -538,20 +538,18 @@ function HomeContent() {
       {/* Auth Modal */}
       {isModalOpen && (
         <div
-          className={`fixed inset-0 z-[100] flex items-center justify-center px-4 backdrop-blur-sm transition-colors duration-200 ${
-            isModalVisible ? "bg-black/60" : "bg-black/0"
-          }`}
+          className={`fixed inset-0 z-[100] flex items-center justify-center px-4 backdrop-blur-sm transition-colors duration-200 ${isModalVisible ? "bg-black/60" : "bg-black/0"
+            }`}
           onClick={closeModal}
         >
           <div
             role="dialog"
             aria-modal="true"
             aria-label={modalMode === "login" ? "Log in" : "Sign up"}
-            className={`w-full max-w-md rounded-2xl bg-neutral-900 p-6 shadow-2xl transition-all duration-200 sm:p-8 ${
-              isModalVisible
+            className={`w-full max-w-md rounded-2xl bg-neutral-900 p-6 shadow-2xl transition-all duration-200 sm:p-8 ${isModalVisible
                 ? "scale-100 opacity-100"
                 : "scale-95 opacity-0"
-            }`}
+              }`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}

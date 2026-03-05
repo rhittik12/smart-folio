@@ -16,7 +16,6 @@ const publicRoutes = [
 // but remain accessible to unauthenticated users
 const authRedirectRoutes = [
   '/',
-  '/login',
   '/sign-in',
   '/sign-up',
 ]
@@ -74,7 +73,8 @@ export async function middleware(request: NextRequest) {
   // But allow if ?auth= param is present (explicit login/signup request)
   if (hasValidSession && isAuthRedirect) {
     const authParam = request.nextUrl.searchParams.get('auth')
-    if (!authParam) {
+
+    if (authParam !== "login" && authParam !== "signup") {
       return NextResponse.redirect(new URL('/workspace', request.url))
     }
   }
@@ -87,7 +87,7 @@ export async function middleware(request: NextRequest) {
   // Protected route without session → redirect to login modal with callback
   if (!hasValidSession) {
     const loginUrl = new URL('/', request.url)
-    loginUrl.searchParams.set('auth', 'login')
+    loginUrl.searchParams.set('auth', 'sign-in')
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }

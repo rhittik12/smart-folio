@@ -93,7 +93,9 @@ export function PromptInput({
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const baseTextRef = useRef("");
   const textRef = useRef(text);
-  textRef.current = text;
+  useEffect(() => {
+    textRef.current = text;
+  }, [text]);
 
   const wordCount = countWords(text);
 
@@ -333,9 +335,8 @@ export function PromptInput({
           {/* Right: Word count, Voice, Send */}
           <div className="flex items-center gap-2 sm:gap-3">
             <span
-              className={`text-xs tabular-nums sm:text-sm ${
-                wordCount >= maxLength ? "text-red-400" : "text-[#5a5a66]"
-              }`}
+              className={`text-xs tabular-nums sm:text-sm ${wordCount >= maxLength ? "text-red-400" : "text-[#5a5a66]"
+                }`}
             >
               {wordCount} / {maxLength} words
             </span>
@@ -349,11 +350,10 @@ export function PromptInput({
                   aria-label={isRecording ? "Stop recording" : "Voice input"}
                   onClick={toggleRecording}
                   disabled={disabled}
-                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
-                    isRecording
+                  className={`relative flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${isRecording
                       ? "text-red-400"
                       : "text-[#8a8a96] hover:text-[#f0f0f3]"
-                  }`}
+                    }`}
                 >
                   {isRecording && (
                     <span className="absolute inset-0 animate-ping rounded-lg bg-red-500/20" />
