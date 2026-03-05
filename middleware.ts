@@ -87,7 +87,7 @@ export async function middleware(request: NextRequest) {
   // Protected route without session → redirect to login modal with callback
   if (!hasValidSession) {
     const loginUrl = new URL('/', request.url)
-    loginUrl.searchParams.set('auth', 'sign-in')
+    loginUrl.searchParams.set('auth', 'login')
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)
   }
