@@ -39,10 +39,14 @@ export default function ProjectPage() {
 
   // ---- Fetch portfolio (polls every 2s) ----
   const { data: portfolio, isLoading: portfolioLoading } =
-    trpc.portfolio.getById.useQuery(
-      { id },
-      { enabled: !!id, refetchInterval: 2000 },
-    );
+  trpc.portfolio.getById.useQuery(
+    { id },
+    {
+      enabled: !!id,
+      refetchInterval: (query) =>
+        query.state.data?.status === "GENERATING" ? 2000 : false,
+    },
+  );
 
   const completeGeneration = trpc.portfolio.completeGeneration.useMutation();
 
@@ -264,7 +268,7 @@ export default function ProjectPage() {
             onMobileTabChange={setMobileTab}
           >
             <PromptInput
-              onSubmit={() => {}}
+              onSubmit={() => { }}
               placeholder="Refine your portfolio..."
               maxLength={500}
               showVoice={false}

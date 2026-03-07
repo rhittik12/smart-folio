@@ -1,8 +1,8 @@
 # Smartfolio -- Implementation Status
 
-## Status: Infrastructure Complete, UX Re-Architecture In Progress
+## Status: Infrastructure Complete, Workspace Generation Flow Built
 
-The backend infrastructure and service integrations are built and operational. The frontend is being re-architected from a traditional SaaS dashboard model to a Lovable-style AI-native workspace.
+The backend infrastructure, service integrations, and the persisted Lovable-style generation flow are built and operational. The workspace prompt page creates portfolios and redirects to a DB-driven project page that renders generation or editor UI based on `portfolio.status`.
 
 ---
 
@@ -13,7 +13,7 @@ The backend infrastructure and service integrations are built and operational. T
 | Component | Status | Notes |
 |-----------|--------|-------|
 | tRPC API layer | Complete | 5 routers, 25+ procedures, type-safe |
-| Prisma + PostgreSQL | Complete | 10 models, relations, indexes |
+| Prisma + PostgreSQL | Complete | 10 models, `PortfolioStatus` enum, relations, indexes |
 | Better Auth | Complete | Google, GitHub, email/password |
 | OpenAI integration | Complete | Generation, token tracking, history |
 | Stripe billing | Complete | 3 tiers, webhooks, portal |
@@ -33,6 +33,19 @@ The backend infrastructure and service integrations are built and operational. T
 | Shared utility functions | Complete | cn(), formatDate, etc. |
 | Shared React hooks | Complete | debounce, localStorage, mediaQuery, clickOutside |
 
+### Workspace UI
+
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `/workspace` prompt page | Complete | Centered prompt input, creates portfolio, redirects to project page |
+| `/workspace/projects/[id]` project page | Complete | DB-driven generation route with 2s polling, status-based UI branching |
+| WorkspaceLayout | Complete | Split-pane layout (38% reasoning, 62% preview), mobile tab switching |
+| ReasoningPane | Complete | Scrollable step list, auto-scroll, PromptInput slot |
+| PreviewPane | Complete | Viewport toggle (desktop/tablet/mobile), iframe preview, loading skeleton |
+| GenerationStep | Complete | Status indicator (pending/active/complete), color-coded messages |
+| PromptInput | Complete | Auto-resize textarea, word count, voice input, file attachments |
+| Persisted generation flow | Complete | DB status drives UI; refresh/navigate-away restores correctly |
+
 ### Database Models
 
 | Model | Status |
@@ -41,7 +54,7 @@ The backend infrastructure and service integrations are built and operational. T
 | Account (OAuth) | Complete |
 | Session | Complete |
 | Verification | Complete |
-| Portfolio | Complete |
+| Portfolio (with PortfolioStatus enum) | Complete |
 | PortfolioSection | Complete |
 | PortfolioAnalytics | Complete |
 | Template | Complete |
@@ -51,21 +64,9 @@ The backend infrastructure and service integrations are built and operational. T
 
 ---
 
-## What Is Being Re-Architected
+## What Is Not Yet Built
 
-The following items are part of the workspace re-architecture. They are not yet built or are being redesigned to fit the new AI-native product model.
-
-### Workspace UI
-
-| Component | Status | Description |
-|-----------|--------|-------------|
-| `/workspace` route | Not started | Two-pane layout: reasoning + preview |
-| WorkspaceLayout | Not started | Top bar, pane container, state management |
-| ReasoningPane | Not started | AI step stream, generation history, prompt input |
-| PreviewPane | Not started | iframe-based live portfolio preview |
-| PortfolioRenderer | Not started | Renders structured JSON into visual portfolio |
-| TopBar | Not started | Logo, portfolio name, publish, upgrade, avatar |
-| ProjectSwitcher | Not started | Dropdown to switch between portfolios |
+The following items are planned but not yet implemented.
 
 ### AI Pipeline Upgrade
 
@@ -75,6 +76,12 @@ The following items are part of the workspace re-architecture. They are not yet 
 | Streaming support | Not started | SSE or tRPC subscriptions for step-by-step streaming |
 | Refinement endpoint | Not started | Diff-based partial updates from follow-up prompts |
 | Context carryover | Not started | Session-based conversation history for refinements |
+
+### Portfolio Renderer
+
+| Component | Status | Description |
+|-----------|--------|-------------|
+| PortfolioRenderer | Not started | Renders structured JSON into visual portfolio in PreviewPane iframe |
 
 ### Publish System
 
@@ -100,7 +107,7 @@ The following items are part of the workspace re-architecture. They are not yet 
 |-----------|--------|-------------|
 | Upgrade nudges | Not started | Contextual, non-blocking prompts at limit boundaries |
 | Usage indicator | Not started | Generation count near prompt input |
-| Plan badge | Not started | Current plan shown in top bar |
+| Plan badge | Complete | Current plan shown in top bar on both workspace routes |
 
 ---
 
@@ -122,8 +129,8 @@ The following were part of the original SaaS dashboard model and have been remov
 | Route | Purpose | Auth | Status |
 |-------|---------|------|--------|
 | `/` | Landing page + entry prompt | No | Built |
-| `/workspace` | AI workspace (two-pane) | Yes | Not started |
-| `/portfolio/[id]` | Deep link to portfolio workspace | Yes | Not started |
+| `/workspace` | Prompt input, creates portfolio, redirects | Yes | Built |
+| `/workspace/projects/[id]` | DB-driven generation and editor UI | Yes | Built |
 | `/p/[slug]` | Published portfolio (standalone) | No | Not started |
 | `/pricing` | Pricing page | No | Not started |
 

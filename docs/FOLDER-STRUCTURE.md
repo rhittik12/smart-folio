@@ -4,7 +4,7 @@
 
 Smartfolio uses a workspace-first architecture. There are no dashboard route groups, no sidebar navigation layouts, and no traditional SaaS page structure. The workspace IS the product.
 
-> **Note:** This document shows the **target folder structure** including both existing and planned files. Items marked with `[PLANNED]` or `[EXISTS]` indicate their current status. See [IMPLEMENTATION-COMPLETE.md](./IMPLEMENTATION-COMPLETE.md) for detailed build status.
+> **Note:** This document shows the **current folder structure**. Items marked with `[PLANNED]` are not yet built. See [IMPLEMENTATION-COMPLETE.md](./IMPLEMENTATION-COMPLETE.md) for detailed build status.
 
 ---
 
@@ -18,13 +18,13 @@ smartfolio/
 │   │   ├── trpc/[trpc]/route.ts     # tRPC API handler
 │   │   └── webhooks/
 │   │       └── stripe/route.ts       # Stripe webhook handler
-│   ├── workspace/                    # AI workspace (protected) [PLANNED - not yet built]
-│   │   └── page.tsx                  # Two-pane: reasoning + preview
-│   ├── portfolio/[id]/               # Deep link to portfolio workspace (protected) [PLANNED - not yet built]
+│   ├── workspace/                    # AI workspace (protected)
+│   │   ├── page.tsx                  # Prompt input, creates portfolio, redirects
+│   │   └── projects/[id]/
+│   │       └── page.tsx              # DB-driven generation and editor UI
+│   ├── p/[slug]/                     # Published portfolio (public) [PLANNED]
 │   │   └── page.tsx
-│   ├── p/[slug]/                     # Published portfolio (public) [PLANNED - not yet built]
-│   │   └── page.tsx
-│   ├── pricing/                      # Pricing page (public) [PLANNED - not yet built]
+│   ├── pricing/                      # Pricing page (public) [PLANNED]
 │   │   └── page.tsx
 │   ├── globals.css
 │   ├── layout.tsx                    # Root layout with TRPCProvider
@@ -67,6 +67,13 @@ smartfolio/
 │       └── index.ts
 │
 ├── components/                       # Shared UI components
+│   ├── workspace/
+│   │   ├── WorkspaceLayout.tsx      # Split-pane layout (reasoning + preview)
+│   │   ├── ReasoningPane.tsx        # Scrollable step list with PromptInput slot
+│   │   ├── PreviewPane.tsx          # Viewport toggle + iframe preview
+│   │   ├── GenerationStep.tsx       # Status indicator (pending/active/complete)
+│   │   └── PromptInput.tsx          # Auto-resize textarea, voice, attachments
+│   │
 │   ├── ui/
 │   │   ├── button.tsx               # Button (5 variants, 3 sizes, loading)
 │   │   ├── input.tsx                # Input with labels, errors, helper text
@@ -76,16 +83,15 @@ smartfolio/
 │   │   └── index.ts
 │   │
 │   └── layouts/
-│       ├── workspace-layout.tsx     # Workspace chrome (top bar, pane container) [PLANNED]
 │       ├── marketing-layout.tsx     # Public page wrapper (nav, footer) [PLANNED]
-│       ├── auth-layout.tsx          # Auth modal/page wrapper [EXISTS]
+│       ├── auth-layout.tsx          # Auth modal/page wrapper
 │       └── index.ts
 │
 ├── server/                           # Backend
 │   ├── routers/
 │   │   ├── _app.ts                  # Root router (merges all sub-routers)
 │   │   ├── user.ts                  # User profile management
-│   │   ├── portfolio.ts             # Portfolio CRUD + publish
+│   │   ├── portfolio.ts             # Portfolio CRUD, publish, generation lifecycle
 │   │   ├── ai.ts                    # AI generation endpoints
 │   │   ├── builder.ts               # Template and block operations
 │   │   └── billing.ts               # Stripe billing endpoints
@@ -152,8 +158,8 @@ smartfolio/
 | Route | File | Auth | Purpose | Status |
 |-------|------|------|---------|--------|
 | `/` | `app/page.tsx` | No | Landing page + prompt input | **Built** |
-| `/workspace` | `app/workspace/page.tsx` | Yes | AI workspace | **Planned** |
-| `/portfolio/[id]` | `app/portfolio/[id]/page.tsx` | Yes | Portfolio workspace (deep link) | **Planned** |
+| `/workspace` | `app/workspace/page.tsx` | Yes | Prompt input, creates portfolio, redirects | **Built** |
+| `/workspace/projects/[id]` | `app/workspace/projects/[id]/page.tsx` | Yes | DB-driven generation and editor UI | **Built** |
 | `/p/[slug]` | `app/p/[slug]/page.tsx` | No | Published portfolio | **Planned** |
 | `/pricing` | `app/pricing/page.tsx` | No | Pricing page | **Planned** |
 
@@ -190,9 +196,9 @@ import { useSubscription } from '@/modules/billing'
 
 | Component | Purpose | Used By | Status |
 |-----------|---------|---------|--------|
-| `workspace-layout.tsx` | Top bar + pane container for workspace | `/workspace`, `/portfolio/[id]` | **Planned** |
+| `WorkspaceLayout.tsx` | Split-pane container (reasoning + preview) | `/workspace/projects/[id]` | **Built** |
 | `marketing-layout.tsx` | Nav + footer for public pages | `/`, `/pricing` | **Planned** |
-| `auth-layout.tsx` | Centered auth modal wrapper | Auth modal on landing page | **Exists** |
+| `auth-layout.tsx` | Centered auth modal wrapper | Auth modal on landing page | **Built** |
 
 There is no `dashboard-layout.tsx`. The dashboard layout concept has been removed. The workspace layout replaces it.
 

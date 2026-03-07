@@ -65,9 +65,11 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 1. **Land on the homepage** - See a simple prompt input
 2. **Describe your portfolio** - "Create a dark minimalist portfolio for a React developer"
 3. **Authenticate** - Sign in with Google or GitHub (inline modal)
-4. **Enter the workspace** - AI generates your portfolio with live preview
-5. **Refine** - Type follow-up prompts to adjust design, content, or layout
-6. **Publish** - One-click publish to get a public URL at `/p/[your-slug]`
+4. **Enter the workspace** - `/workspace` shows the prompt input; submitting creates a portfolio and redirects to `/workspace/projects/[id]`
+5. **Watch it generate** - The project page shows real-time reasoning steps and a live preview pane, driven by `portfolio.status` from the database
+6. **Persist across sessions** - Navigate away and come back; the page restores from DB state (GENERATING or READY)
+7. **Refine** - Type follow-up prompts to adjust design, content, or layout (planned)
+8. **Publish** - One-click publish to get a public URL at `/p/[your-slug]` (planned)
 
 There is no dashboard. The workspace IS the product.
 
