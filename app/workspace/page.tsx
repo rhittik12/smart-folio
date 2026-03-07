@@ -2,17 +2,17 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useAuth, getUserInitials, getUserDisplayName } from "@/modules/auth";
 import { useSubscription } from "@/modules/billing";
 import { signOut } from "@/lib/auth-client";
+import { trpc } from "@/lib/trpc-provider";
 import { PromptInput } from "@/components/workspace/PromptInput";
-import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
-import type { Viewport } from "@/components/workspace/PreviewPane";
-import type { GenerationStepData } from "@/components/workspace/GenerationStep";
 
 export default function WorkspacePage() {
+  const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
-  const { subscription, isLoading: subLoading } = useSubscription();
+  const { subscription } = useSubscription();
 
   const [pendingPrompt] = useState(() => {
     if (typeof window === "undefined") return "";
@@ -24,19 +24,13 @@ export default function WorkspacePage() {
   const [portfolioTitle, setPortfolioTitle] = useState("Untitled Portfolio");
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const titleInputRef = useRef<HTMLInputElement>(null);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
 
   const planLabel = subscription?.plan ?? "FREE";
 
-  // ---- Generation state ----
-
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [steps, setSteps] = useState<GenerationStepData[]>([]);
-  const [viewport, setViewport] = useState<Viewport>("desktop");
-  const [mobileTab, setMobileTab] = useState<"reasoning" | "preview">(
-    "reasoning",
-  );
+  const createPortfolio = trpc.portfolio.create.useMutation();
 
   // ---- Inline title editing ----
 
@@ -84,20 +78,23 @@ export default function WorkspacePage() {
     return () => document.removeEventListener("mousedown", handleClick);
   }, [avatarMenuOpen]);
 
-  // ---- Prompt submit ----
+  // ---- Prompt submit: create portfolio and redirect ----
 
   const handlePromptSubmit = useCallback(
-    (text: string, _files: File[]) => {
-      if (isGenerating) return;
-      setIsGenerating(true);
-      setSteps([
-        { id: 1, message: "Analyzing requirements...", status: "complete" },
-        { id: 2, message: "Selecting layout...", status: "active" },
-        { id: 3, message: "Generating hero section...", status: "pending" },
-        { id: 4, message: "Creating project cards...", status: "pending" },
-      ]);
+    async (text: string, _files: File[]) => {
+      if (isSubmitting) return;
+      setIsSubmitting(true);
+      try {
+        const portfolio = await createPortfolio.mutateAsync({
+          title: portfolioTitle,
+          description: text,
+        });
+        router.push(`/workspace/projects/${portfolio.id}`);
+      } catch {
+        setIsSubmitting(false);
+      }
     },
-    [isGenerating],
+    [isSubmitting, createPortfolio, portfolioTitle, router],
   );
 
   // ---- Loading state ----
@@ -199,7 +196,7 @@ export default function WorkspacePage() {
           )}
         </div>
 
-        {/* ---- Right: Plan / Upgrade / Publish / Avatar ---- */}
+        {/* ---- Right: Plan / Upgrade / Avatar ---- */}
         <div className="flex items-center gap-2">
           {/* Plan indicator */}
           <span className="hidden rounded-md border border-[#27272a] px-2 py-0.5 text-xs font-medium text-[#5a5a66] sm:inline-block">
@@ -215,15 +212,6 @@ export default function WorkspacePage() {
               Upgrade
             </Link>
           )}
-
-          {/* Publish button (disabled in initial state) */}
-          <button
-            type="button"
-            disabled
-            className="rounded-lg bg-[#7c3aed] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#6d28d9] disabled:opacity-40 disabled:cursor-not-allowed sm:px-4 sm:text-sm"
-          >
-            Publish
-          </button>
 
           {/* Separator */}
           <div className="mx-1 hidden h-5 w-px bg-[#1a1a1f] sm:block" />
@@ -297,78 +285,59 @@ export default function WorkspacePage() {
       {/* Main Content                                                        */}
       {/* ================================================================= */}
       <main className="relative flex flex-1 flex-col overflow-hidden">
-        {!isGenerating ? (
-          /* ---------- State 1: Idle (centered prompt) ---------- */
-          <div className="flex flex-1 flex-col items-center justify-center px-4">
-            {/* Background glow */}
-            <div
-              className="pointer-events-none absolute inset-0"
-              aria-hidden="true"
-            >
-              <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[600px] rounded-full bg-[#7c3aed]/8 blur-[120px]" />
-            </div>
-
-            {/* Heading */}
-            <div className="relative z-10 mb-8 text-center">
-              <h1 className="text-2xl font-semibold tracking-tight text-[#f0f0f3] sm:text-3xl">
-                What do you want to build?
-              </h1>
-              <p className="mt-2 text-sm text-[#5a5a66] sm:text-base">
-                Describe your portfolio and we&apos;ll generate it for you.
-              </p>
-            </div>
-
-            {/* Prompt input */}
-            <div className="relative z-10">
-              <PromptInput
-                onSubmit={handlePromptSubmit}
-                placeholder="Create a sleek dark portfolio for a React developer with project cards, an about section, and a contact form..."
-                maxLength={500}
-                showVoice
-                showAttachments
-                initialValue={pendingPrompt}
-              />
-            </div>
-
-            {/* Suggestions */}
-            <div className="relative z-10 mt-6 flex flex-wrap justify-center gap-2">
-              {[
-                "Minimalist dark developer portfolio",
-                "Creative designer portfolio with animations",
-                "Professional fullstack engineer portfolio",
-              ].map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => {
-                    handlePromptSubmit(suggestion, []);
-                  }}
-                  className="rounded-lg border border-[#27272a] bg-[#111113] px-3 py-1.5 text-xs text-[#5a5a66] transition-colors hover:border-[#3f3f46] hover:text-[#8a8a96]"
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          /* ---------- State 2: Active Generation ---------- */
-          <WorkspaceLayout
-            steps={steps}
-            viewport={viewport}
-            onViewportChange={setViewport}
-            mobileTab={mobileTab}
-            onMobileTabChange={setMobileTab}
+        <div className="flex flex-1 flex-col items-center justify-center px-4">
+          {/* Background glow */}
+          <div
+            className="pointer-events-none absolute inset-0"
+            aria-hidden="true"
           >
+            <div className="absolute left-1/2 top-1/3 -translate-x-1/2 -translate-y-1/2 h-[400px] w-[600px] rounded-full bg-[#7c3aed]/8 blur-[120px]" />
+          </div>
+
+          {/* Heading */}
+          <div className="relative z-10 mb-8 text-center">
+            <h1 className="text-2xl font-semibold tracking-tight text-[#f0f0f3] sm:text-3xl">
+              What do you want to build?
+            </h1>
+            <p className="mt-2 text-sm text-[#5a5a66] sm:text-base">
+              Describe your portfolio and we&apos;ll generate it for you.
+            </p>
+          </div>
+
+          {/* Prompt input */}
+          <div className="relative z-10">
             <PromptInput
               onSubmit={handlePromptSubmit}
-              placeholder="Refine your portfolio..."
+              placeholder="Create a sleek dark portfolio for a React developer with project cards, an about section, and a contact form..."
               maxLength={500}
-              showVoice={false}
-              showAttachments={false}
-              disabled={isGenerating}
+              showVoice
+              showAttachments
+              initialValue={pendingPrompt}
+              disabled={isSubmitting}
             />
-          </WorkspaceLayout>
-        )}
+          </div>
+
+          {/* Suggestions */}
+          <div className="relative z-10 mt-6 flex flex-wrap justify-center gap-2">
+            {[
+              "Minimalist dark developer portfolio",
+              "Creative designer portfolio with animations",
+              "Professional fullstack engineer portfolio",
+            ].map((suggestion) => (
+              <button
+                key={suggestion}
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => {
+                  handlePromptSubmit(suggestion, []);
+                }}
+                className="rounded-lg border border-[#27272a] bg-[#111113] px-3 py-1.5 text-xs text-[#5a5a66] transition-colors hover:border-[#3f3f46] hover:text-[#8a8a96] disabled:opacity-50"
+              >
+                {suggestion}
+              </button>
+            ))}
+          </div>
+        </div>
       </main>
     </div>
   );

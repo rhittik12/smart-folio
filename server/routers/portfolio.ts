@@ -8,11 +8,11 @@ export const portfolioRouter = createTRPCRouter({
       where: { userId: ctx.session.user.id },
       orderBy: { createdAt: 'desc' },
     })
-    
+
     return { portfolios }
   }),
 
-  // Get portfolio by ID
+  // Get portfolio by ID (ownership verified)
   getById: protectedProcedure
     .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
@@ -22,11 +22,11 @@ export const portfolioRouter = createTRPCRouter({
           userId: ctx.session.user.id,
         },
       })
-      
+
       return portfolio
     }),
 
-  // Create new portfolio
+  // Create new portfolio (starts in GENERATING status)
   create: protectedProcedure
     .input(
       z.object({
@@ -37,8 +37,10 @@ export const portfolioRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const slug = input.slug || input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-')
-      
+      const baseSlug = (input.slug || input.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'))
+        .replace(/^-|-$/g, '')
+      const slug = `${baseSlug}-${Date.now().toString(36)}`
+
       const portfolio = await ctx.prisma.portfolio.create({
         data: {
           userId: ctx.session.user.id,
@@ -46,10 +48,28 @@ export const portfolioRouter = createTRPCRouter({
           slug,
           description: input.description,
           theme: input.theme || 'MINIMAL',
-          status: 'DRAFT',
+          status: 'GENERATING',
         },
       })
-      
+
+      return portfolio
+    }),
+
+  // Mark generation as complete
+  completeGeneration: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const portfolio = await ctx.prisma.portfolio.updateMany({
+        where: {
+          id: input.id,
+          userId: ctx.session.user.id,
+          status: 'GENERATING',
+        },
+        data: {
+          status: 'READY',
+        },
+      })
+
       return portfolio
     }),
 
@@ -62,12 +82,12 @@ export const portfolioRouter = createTRPCRouter({
         slug: z.string().min(3).max(100).optional(),
         description: z.string().max(500).optional(),
         theme: z.enum(['MINIMAL', 'MODERN', 'CREATIVE', 'PROFESSIONAL', 'DARK']).optional(),
-        status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
+        status: z.enum(['GENERATING', 'READY', 'FAILED', 'DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
       const { id, ...data } = input
-      
+
       const portfolio = await ctx.prisma.portfolio.updateMany({
         where: {
           id,
@@ -75,7 +95,7 @@ export const portfolioRouter = createTRPCRouter({
         },
         data,
       })
-      
+
       return portfolio
     }),
 
@@ -89,7 +109,7 @@ export const portfolioRouter = createTRPCRouter({
           userId: ctx.session.user.id,
         },
       })
-      
+
       return { success: true }
     }),
 
@@ -108,7 +128,7 @@ export const portfolioRouter = createTRPCRouter({
           publishedAt: new Date(),
         },
       })
-      
+
       return portfolio
     }),
 })
