@@ -32,7 +32,7 @@ There is no dashboard. The workspace IS the product. Users describe what they wa
 - **Root router:** `server/routers/_app.ts`
 - **Sub-routers:**
   - `user.ts` -- profile management
-  - `portfolio.ts` -- portfolio CRUD and publish
+  - `portfolio.ts` -- portfolio CRUD, publish, and generation lifecycle
   - `ai.ts` -- AI generation endpoints
   - `builder.ts` -- template and block operations
   - `billing.ts` -- Stripe subscription management
@@ -43,6 +43,7 @@ There is no dashboard. The workspace IS the product. Users describe what they wa
 
 - **Schema:** `prisma/schema.prisma`
 - **Models:** User, Account, Session, Verification, Portfolio, PortfolioSection, PortfolioAnalytics, Template, Subscription, Payment, AIGeneration
+- **Enums:** `PortfolioStatus` (GENERATING, READY, FAILED, DRAFT, PUBLISHED, ARCHIVED)
 - Relations, indexes, and cascade deletes configured
 - Role field on User (USER, ADMIN)
 
@@ -106,7 +107,25 @@ There is no dashboard. The workspace IS the product. Users describe what they wa
 - Inline auth modal (Google + GitHub OAuth)
 - Plan indicator badge
 
-#### 11. Feature Modules
+#### 11. Workspace UI
+
+The workspace is split into two routes:
+
+- **Prompt page:** `app/workspace/page.tsx` -- Centered prompt input with editable portfolio title. On submit, creates a portfolio via `portfolio.create` (status = GENERATING), then redirects to the project route.
+- **Project page:** `app/workspace/projects/[id]/page.tsx` -- DB-driven generation route. Fetches portfolio with 2-second polling. When `status = GENERATING`, renders the two-pane generation workspace (ReasoningPane + PreviewPane) with simulated reasoning steps. When `status = READY`, renders the portfolio editor placeholder UI.
+
+Generation state is fully persisted in the database. Navigating away and returning, or refreshing the page, restores the correct UI based on `portfolio.status`.
+
+#### 12. Workspace Components
+
+- **Location:** `components/workspace/`
+- **WorkspaceLayout** -- Split-pane layout (38% reasoning, rest preview) with mobile tab-based switching
+- **ReasoningPane** -- Scrollable list of GenerationSteps with auto-scroll and PromptInput slot
+- **PreviewPane** -- Viewport toggle (desktop/tablet/mobile), iframe-based preview, loading skeleton
+- **GenerationStep** -- Status indicator (pending dot, active spinner, complete checkmark) with color coding
+- **PromptInput** -- Auto-resizing textarea, word count, voice input (Web Speech API), file attachments
+
+#### 13. Feature Modules
 
 Each module in `modules/` provides hooks, types, utilities, and constants:
 
@@ -116,7 +135,7 @@ Each module in `modules/` provides hooks, types, utilities, and constants:
 - **builder** -- `useBuilder`, `useTemplates`, `useApplyTemplate`, `useSaveBlocks`
 - **billing** -- `useSubscription`, `useCreateCheckoutSession`, `usePaymentHistory`
 
-#### 12. UI Components
+#### 14. UI Components
 
 - **Location:** `components/ui/`
 - Button (5 variants, 3 sizes, loading state)
@@ -126,17 +145,25 @@ Each module in `modules/` provides hooks, types, utilities, and constants:
 
 ### Re-Architecture In Progress
 
-The following areas are being rebuilt to align with the Lovable-style workspace model. They should NOT be considered complete.
+The following areas are being rebuilt to align with the Lovable-style workspace model. Items marked **Built** are now operational; the rest should NOT be considered complete.
 
-#### Workspace UI (`/workspace`)
+#### Workspace UI (`/workspace`) -- Built
 
-The core product surface. Not yet built. Will include:
+The core product surface is now operational:
 
-- Two-pane layout: AI reasoning stream (left, ~35-40%) + live preview (right, ~60-65%)
+- Two-pane layout: AI reasoning stream (left, ~38%) + live preview (right, ~62%)
 - Persistent prompt input at bottom of reasoning pane
-- Top bar: logo, portfolio name (editable), user avatar, Publish button, Upgrade badge
-- Initial state: centered prompt input (no panes until generation starts)
-- Transition animation from single prompt to two-pane layout on generation
+- Top bar: logo, portfolio name (editable on prompt page, read-only on project page), user avatar, Publish button, Upgrade badge
+- Initial state: centered prompt input on `/workspace` (no panes until generation starts)
+- Generation state driven by `portfolio.status` from the database (GENERATING / READY)
+- Navigating away and returning restores the correct UI from DB state
+
+#### Persisted Generation Flow -- Built
+
+- `/workspace` creates a portfolio with `status = GENERATING` and redirects to `/workspace/projects/[id]`
+- `/workspace/projects/[id]` polls portfolio status every 2 seconds
+- Simulated reasoning steps progress over ~7.5 seconds, then `completeGeneration` mutation sets status to READY
+- No reliance on React local state for generation persistence
 
 #### Full Portfolio Generation Pipeline
 
@@ -184,8 +211,8 @@ Contextual, non-blocking upgrade nudges at limit boundaries (generation count, p
 | Route | Purpose | Status |
 |-------|---------|--------|
 | `/` | Landing page + entry prompt | Built |
-| `/workspace` | AI-native workspace (two-pane) | Not yet built |
-| `/portfolio/[id]` | Deep link to specific workspace session | Not yet built |
+| `/workspace` | Prompt input, creates portfolio and redirects | Built |
+| `/workspace/projects/[id]` | DB-driven generation and editor UI | Built |
 | `/p/[slug]` | Public published portfolio | Not yet built |
 | `/pricing` | Pricing page | Not yet built |
 
@@ -261,8 +288,9 @@ NEXT_PUBLIC_APP_URL="http://localhost:3000"
 
 ### Portfolio
 - `portfolio.list` -- list user portfolios
-- `portfolio.getById` -- get single portfolio
-- `portfolio.create` -- create portfolio
+- `portfolio.getById` -- get single portfolio (ownership verified)
+- `portfolio.create` -- create portfolio (status = GENERATING, unique slug)
+- `portfolio.completeGeneration` -- transition status from GENERATING to READY
 - `portfolio.update` -- update portfolio
 - `portfolio.delete` -- delete portfolio
 - `portfolio.publish` -- publish portfolio
