@@ -236,8 +236,12 @@ Please generate:
     options?: { model?: string; signal?: AbortSignal },
   ): AsyncGenerator<AIGenerationEvent> {
     const model = options?.model || process.env.OPENAI_MODEL || 'gpt-4'
+    const STREAM_TIMEOUT_MS = 120_000 // 2 minutes
 
     const systemPrompt = `You are Smartfolio, an expert portfolio generator. The user will describe themselves and their work. You MUST call the save_portfolio function with a complete, structured portfolio.
+
+The theme must be an object with a "variant" field (one of: MINIMAL, MODERN, CREATIVE, PROFESSIONAL, DARK).
+The metadata must include title, description, author, profession, and SEO fields: seoTitle (50-70 chars), seoDescription (120-160 chars), seoKeywords (5-8 keywords).
 
 Generate a professional portfolio with these sections (in order):
 1. HERO - A compelling headline and subheadline
@@ -247,11 +251,25 @@ Generate a professional portfolio with these sections (in order):
 5. CONTACT - Contact information placeholders
 6. FOOTER - Brief footer text
 
-Choose a theme that best fits the user's profession. Make the content authentic and compelling.`
+Choose a theme variant that best fits the user's profession. Make the content authentic and compelling.`
 
     yield { type: 'status', step: 'analyzing', message: 'Analyzing your requirements...', percent: 5 }
 
+    // Combined abort: caller's signal + stream timeout
+    const timeoutController = new AbortController()
+    const timeoutId = setTimeout(() => timeoutController.abort(), STREAM_TIMEOUT_MS)
+
+    if (options?.signal) {
+      if (options.signal.aborted) {
+        clearTimeout(timeoutId)
+        yield { type: 'error', error: 'Generation cancelled' }
+        return
+      }
+      options.signal.addEventListener('abort', () => timeoutController.abort(), { once: true })
+    }
+
     try {
+      console.log('[ai] openai_stream_start')
       const stream = await this.openai.chat.completions.create({
         model,
         messages: [
@@ -261,10 +279,12 @@ Choose a theme that best fits the user's profession. Make the content authentic 
         tools: [SAVE_PORTFOLIO_TOOL],
         tool_choice: { type: 'function', function: { name: 'save_portfolio' } },
         stream: true,
+        stream_options: { include_usage: true },
         max_tokens: 4000,
         temperature: 0.7,
-      }, { signal: options?.signal })
+      }, { signal: timeoutController.signal })
 
+      console.log('[ai] openai_stream_connected, consuming chunks')
       yield { type: 'status', step: 'generating', message: 'Generating portfolio structure...', percent: 15 }
 
       let functionArgs = ''
@@ -319,6 +339,7 @@ Choose a theme that best fits the user's profession. Make the content authentic 
         }
       }
 
+      console.log(`[ai] openai_stream_done, functionArgs length=${functionArgs.length}, tokens=${totalTokens}`)
       yield { type: 'status', step: 'validating', message: 'Validating generated content...', percent: 90 }
 
       // Parse and validate final output
@@ -336,15 +357,27 @@ Choose a theme that best fits the user's profession. Make the content authentic 
         return
       }
 
+      console.log('[ai] validation_passed')
       yield { type: 'status', step: 'complete', message: 'Portfolio generated successfully!', percent: 100 }
       yield { type: 'complete', portfolio: portfolioData, tokensUsed: totalTokens }
     } catch (error: any) {
-      if (error?.name === 'AbortError' || options?.signal?.aborted) {
+      // Differentiate: caller cancelled vs timeout vs other error
+      const callerAborted = options?.signal?.aborted
+      const timedOut = timeoutController.signal.aborted && !callerAborted
+
+      if (callerAborted) {
         yield { type: 'error', error: 'Generation cancelled' }
+        return
+      }
+      if (timedOut) {
+        console.error('[ai] OpenAI stream timed out after', STREAM_TIMEOUT_MS, 'ms')
+        yield { type: 'error', error: 'AI generation timed out. Please try again.' }
         return
       }
       console.error('[ai] generateFullPortfolio error:', error)
       yield { type: 'error', error: error?.message || 'AI generation failed' }
+    } finally {
+      clearTimeout(timeoutId)
     }
   }
 

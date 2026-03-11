@@ -69,15 +69,22 @@ export const portfolioSectionSchema = z.discriminatedUnion('type', [
 // Portfolio Output Schema
 // ============================================
 
+export const portfolioThemeSchema = z.object({
+  variant: z.enum(['MINIMAL', 'MODERN', 'CREATIVE', 'PROFESSIONAL', 'DARK']),
+})
+
 export const portfolioMetadataSchema = z.object({
   title: z.string().min(1).max(200),
   description: z.string().min(1).max(1000),
   author: z.string().min(1).max(100),
   profession: z.string().min(1).max(100),
+  seoTitle: z.string().max(70).optional(),
+  seoDescription: z.string().max(160).optional(),
+  seoKeywords: z.array(z.string().max(50)).max(10).optional(),
 })
 
 export const portfolioOutputSchema = z.object({
-  theme: z.enum(['MINIMAL', 'MODERN', 'CREATIVE', 'PROFESSIONAL', 'DARK']),
+  theme: portfolioThemeSchema,
   metadata: portfolioMetadataSchema,
   sections: z.array(portfolioSectionSchema).min(1).max(10),
 })
@@ -115,9 +122,16 @@ export const SAVE_PORTFOLIO_TOOL = {
       type: 'object',
       properties: {
         theme: {
-          type: 'string',
-          enum: ['MINIMAL', 'MODERN', 'CREATIVE', 'PROFESSIONAL', 'DARK'],
+          type: 'object',
           description: 'Visual theme for the portfolio',
+          properties: {
+            variant: {
+              type: 'string',
+              enum: ['MINIMAL', 'MODERN', 'CREATIVE', 'PROFESSIONAL', 'DARK'],
+              description: 'Theme variant name',
+            },
+          },
+          required: ['variant'],
         },
         metadata: {
           type: 'object',
@@ -126,6 +140,9 @@ export const SAVE_PORTFOLIO_TOOL = {
             description: { type: 'string', description: 'Brief portfolio description' },
             author: { type: 'string', description: 'Author name' },
             profession: { type: 'string', description: 'Professional title or role' },
+            seoTitle: { type: 'string', description: 'SEO-optimized page title (50-70 chars)' },
+            seoDescription: { type: 'string', description: 'SEO meta description (120-160 chars)' },
+            seoKeywords: { type: 'array', items: { type: 'string' }, description: '5-8 SEO keywords' },
           },
           required: ['title', 'description', 'author', 'profession'],
         },
