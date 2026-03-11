@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth, getUserInitials, getUserDisplayName } from "@/modules/auth";
@@ -10,14 +10,7 @@ import { trpc } from "@/lib/trpc-provider";
 import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
 import { PromptInput } from "@/components/workspace/PromptInput";
 import type { Viewport } from "@/components/workspace/PreviewPane";
-import type { GenerationStepData } from "@/components/workspace/GenerationStep";
-
-const INITIAL_STEPS: GenerationStepData[] = [
-  { id: 1, message: "Analyzing requirements...", status: "active" },
-  { id: 2, message: "Selecting layout...", status: "pending" },
-  { id: 3, message: "Generating hero section...", status: "pending" },
-  { id: 4, message: "Creating project cards...", status: "pending" },
-];
+import { useGenerationStream } from "@/hooks/use-generation-stream";
 
 export default function ProjectPage() {
   const params = useParams();
@@ -30,71 +23,34 @@ export default function ProjectPage() {
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
   const avatarMenuRef = useRef<HTMLDivElement>(null);
 
-  // ---- Generation UI state ----
-  const [steps, setSteps] = useState<GenerationStepData[]>(INITIAL_STEPS);
+  // ---- UI state ----
   const [viewport, setViewport] = useState<Viewport>("desktop");
   const [mobileTab, setMobileTab] = useState<"reasoning" | "preview">(
     "reasoning",
   );
 
-  // ---- Fetch portfolio (polls every 2s) ----
+  // ---- Fetch portfolio (polls while GENERATING) ----
+  const utils = trpc.useUtils();
   const { data: portfolio, isLoading: portfolioLoading } =
-  trpc.portfolio.getById.useQuery(
-    { id },
-    {
-      enabled: !!id,
-      refetchInterval: (query) =>
-        query.state.data?.status === "GENERATING" ? 2000 : false,
-    },
-  );
+    trpc.portfolio.getById.useQuery(
+      { id },
+      {
+        enabled: !!id,
+        refetchInterval: (query) =>
+          query.state.data?.status === "GENERATING" ? 2000 : false,
+      },
+    );
 
-  const completeGeneration = trpc.portfolio.completeGeneration.useMutation();
+  // ---- WebSocket generation stream ----
+  const { steps, previewHtml, status: streamStatus, error: streamError } =
+    useGenerationStream(id, portfolio?.status);
 
-  // ---- Generation simulation ----
-  const simulationStarted = useRef(false);
-
+  // When stream completes, invalidate the tRPC query to pick up READY status
   useEffect(() => {
-    if (portfolio?.status !== "GENERATING" || simulationStarted.current) return;
-    simulationStarted.current = true;
-
-    const timers = [
-      setTimeout(() => {
-        setSteps([
-          { id: 1, message: "Analyzing requirements...", status: "complete" },
-          { id: 2, message: "Selecting layout...", status: "active" },
-          { id: 3, message: "Generating hero section...", status: "pending" },
-          { id: 4, message: "Creating project cards...", status: "pending" },
-        ]);
-      }, 2000),
-      setTimeout(() => {
-        setSteps([
-          { id: 1, message: "Analyzing requirements...", status: "complete" },
-          { id: 2, message: "Selecting layout...", status: "complete" },
-          { id: 3, message: "Generating hero section...", status: "active" },
-          { id: 4, message: "Creating project cards...", status: "pending" },
-        ]);
-      }, 4000),
-      setTimeout(() => {
-        setSteps([
-          { id: 1, message: "Analyzing requirements...", status: "complete" },
-          { id: 2, message: "Selecting layout...", status: "complete" },
-          { id: 3, message: "Generating hero section...", status: "complete" },
-          { id: 4, message: "Creating project cards...", status: "active" },
-        ]);
-      }, 6000),
-      setTimeout(() => {
-        setSteps([
-          { id: 1, message: "Analyzing requirements...", status: "complete" },
-          { id: 2, message: "Selecting layout...", status: "complete" },
-          { id: 3, message: "Generating hero section...", status: "complete" },
-          { id: 4, message: "Creating project cards...", status: "complete" },
-        ]);
-        completeGeneration.mutate({ id });
-      }, 7500),
-    ];
-
-    return () => timers.forEach(clearTimeout);
-  }, [portfolio?.status, id, completeGeneration]);
+    if (streamStatus === "complete") {
+      utils.portfolio.getById.invalidate({ id });
+    }
+  }, [streamStatus, id, utils.portfolio.getById]);
 
   // ---- Close avatar menu on outside click ----
   useEffect(() => {
@@ -266,6 +222,7 @@ export default function ProjectPage() {
             onViewportChange={setViewport}
             mobileTab={mobileTab}
             onMobileTabChange={setMobileTab}
+            previewHtml={previewHtml ?? undefined}
           >
             <PromptInput
               onSubmit={() => { }}
@@ -277,7 +234,7 @@ export default function ProjectPage() {
             />
           </WorkspaceLayout>
         ) : (
-          /* ---------- READY: portfolio editor placeholder ---------- */
+          /* ---------- READY / FAILED: result placeholder ---------- */
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <div
               className="pointer-events-none absolute inset-0"
@@ -287,36 +244,71 @@ export default function ProjectPage() {
             </div>
 
             <div className="relative z-10 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#7c3aed]/10">
-                <svg
-                  width="24"
-                  height="24"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  aria-hidden="true"
-                >
-                  <path
-                    d="M3 8.5l3.5 3.5L13 4"
-                    stroke="#7c3aed"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-              </div>
-              <h2 className="text-xl font-semibold tracking-tight text-[#f0f0f3]">
-                Portfolio Ready
-              </h2>
-              <p className="mt-2 text-sm text-[#5a5a66]">
-                Your portfolio &ldquo;{portfolio.title}&rdquo; has been
-                generated. The editor will appear here.
-              </p>
-              <Link
-                href="/workspace"
-                className="mt-6 inline-block rounded-lg border border-[#27272a] px-4 py-2 text-sm font-medium text-[#8a8a96] transition-colors hover:border-[#3f3f46] hover:text-[#f0f0f3]"
-              >
-                Back to Workspace
-              </Link>
+              {portfolio.status === "FAILED" ? (
+                <>
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M4 4l8 8M12 4l-8 8"
+                        stroke="#ef4444"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-semibold tracking-tight text-[#f0f0f3]">
+                    Generation Failed
+                  </h2>
+                  <p className="mt-2 text-sm text-[#5a5a66]">
+                    {streamError || "Something went wrong during generation."}
+                  </p>
+                  <Link
+                    href="/workspace"
+                    className="mt-6 inline-block rounded-lg border border-[#27272a] px-4 py-2 text-sm font-medium text-[#8a8a96] transition-colors hover:border-[#3f3f46] hover:text-[#f0f0f3]"
+                  >
+                    Try Again
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#7c3aed]/10">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M3 8.5l3.5 3.5L13 4"
+                        stroke="#7c3aed"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-semibold tracking-tight text-[#f0f0f3]">
+                    Portfolio Ready
+                  </h2>
+                  <p className="mt-2 text-sm text-[#5a5a66]">
+                    Your portfolio &ldquo;{portfolio.title}&rdquo; has been
+                    generated. The editor will appear here.
+                  </p>
+                  <Link
+                    href="/workspace"
+                    className="mt-6 inline-block rounded-lg border border-[#27272a] px-4 py-2 text-sm font-medium text-[#8a8a96] transition-colors hover:border-[#3f3f46] hover:text-[#f0f0f3]"
+                  >
+                    Back to Workspace
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         )}

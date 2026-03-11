@@ -12,6 +12,7 @@ interface WorkspaceLayoutProps {
   mobileTab: "reasoning" | "preview";
   onMobileTabChange: (tab: "reasoning" | "preview") => void;
   children: ReactNode;
+  previewHtml?: string;
 }
 
 export function WorkspaceLayout({
@@ -21,6 +22,7 @@ export function WorkspaceLayout({
   mobileTab,
   onMobileTabChange,
   children,
+  previewHtml,
 }: WorkspaceLayoutProps) {
   const [entered, setEntered] = useState(false);
 
@@ -33,6 +35,7 @@ export function WorkspaceLayout({
     return () => cancelAnimationFrame(id);
   }, []);
 
+
   return (
     <div className="flex h-full flex-col">
       {/* ---- Mobile tab bar ---- */}
@@ -42,11 +45,10 @@ export function WorkspaceLayout({
             key={tab}
             type="button"
             onClick={() => onMobileTabChange(tab)}
-            className={`flex-1 py-2.5 text-center text-sm font-medium capitalize transition-colors ${
-              mobileTab === tab
+            className={`flex-1 py-2.5 text-center text-sm font-medium capitalize transition-colors ${mobileTab === tab
                 ? "border-b-2 border-[#7c3aed] text-[#f0f0f3]"
                 : "text-[#5a5a66] hover:text-[#8a8a96]"
-            }`}
+              }`}
           >
             {tab}
           </button>
@@ -57,26 +59,25 @@ export function WorkspaceLayout({
       <div className="hidden h-full md:flex">
         {/* Left pane: Reasoning */}
         <div
-          className={`w-[38%] max-w-[500px] shrink-0 border-r border-[#1a1a1f] transition-all duration-300 ease-in-out ${
-            entered
+          className={`w-[38%] max-w-[500px] shrink-0 border-r border-[#1a1a1f] transition-all duration-300 ease-in-out ${entered
               ? "opacity-100 translate-x-0"
               : "opacity-0 -translate-x-8"
-          }`}
+            }`}
         >
           <ReasoningPane steps={steps}>{children}</ReasoningPane>
         </div>
 
         {/* Right pane: Preview */}
         <div
-          className={`flex-1 transition-all duration-300 ease-in-out ${
-            entered
+          className={`flex-1 transition-all duration-300 ease-in-out ${entered
               ? "opacity-100 translate-x-0"
               : "opacity-0 translate-x-8"
-          }`}
+            }`}
         >
           <PreviewPane
             viewport={viewport}
             onViewportChange={onViewportChange}
+            htmlContent={previewHtml}
           />
         </div>
       </div>
@@ -90,6 +91,7 @@ export function WorkspaceLayout({
             viewport="mobile"
             onViewportChange={onViewportChange}
             showViewportToggle={false}
+            htmlContent={previewHtml}
           />
         )}
       </div>
