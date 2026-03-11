@@ -1,5 +1,8 @@
 import OpenAI from 'openai'
 import { PrismaClient } from '@prisma/client'
+import { parse as parsePartialJson } from 'partial-json'
+import { SAVE_PORTFOLIO_TOOL, portfolioOutputSchema } from '../ws/schemas'
+import type { AIGenerationEvent, PortfolioOutput } from '../ws/types'
 
 export interface AIServiceConfig {
   openaiApiKey: string
@@ -224,6 +227,124 @@ Please generate:
       generationsCount: stats._count,
       tokensLimit: planLimits.tokens,
       generationsLimit: planLimits.generations,
+    }
+  }
+
+  async *generateFullPortfolio(
+    prompt: string,
+    userId: string,
+    options?: { model?: string; signal?: AbortSignal },
+  ): AsyncGenerator<AIGenerationEvent> {
+    const model = options?.model || process.env.OPENAI_MODEL || 'gpt-4'
+
+    const systemPrompt = `You are Smartfolio, an expert portfolio generator. The user will describe themselves and their work. You MUST call the save_portfolio function with a complete, structured portfolio.
+
+Generate a professional portfolio with these sections (in order):
+1. HERO - A compelling headline and subheadline
+2. ABOUT - A professional bio with highlights
+3. PROJECTS - 2-4 portfolio projects with technologies
+4. SKILLS - Technical skill categories
+5. CONTACT - Contact information placeholders
+6. FOOTER - Brief footer text
+
+Choose a theme that best fits the user's profession. Make the content authentic and compelling.`
+
+    yield { type: 'status', step: 'analyzing', message: 'Analyzing your requirements...', percent: 5 }
+
+    try {
+      const stream = await this.openai.chat.completions.create({
+        model,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: prompt },
+        ],
+        tools: [SAVE_PORTFOLIO_TOOL],
+        tool_choice: { type: 'function', function: { name: 'save_portfolio' } },
+        stream: true,
+        max_tokens: 4000,
+        temperature: 0.7,
+      }, { signal: options?.signal })
+
+      yield { type: 'status', step: 'generating', message: 'Generating portfolio structure...', percent: 15 }
+
+      let functionArgs = ''
+      let totalTokens = 0
+      let lastChunkPercent = 15
+
+      for await (const chunk of stream) {
+        if (options?.signal?.aborted) {
+          yield { type: 'error', error: 'Generation cancelled' }
+          return
+        }
+
+        const delta = chunk.choices[0]?.delta
+
+        // Accumulate function call arguments
+        if (delta?.tool_calls?.[0]?.function?.arguments) {
+          functionArgs += delta.tool_calls[0].function.arguments
+
+          // Progressive percent (15% to 85% during streaming)
+          const estimatedProgress = Math.min(85, lastChunkPercent + 0.5)
+          lastChunkPercent = estimatedProgress
+
+          // Attempt partial parse for progressive preview
+          try {
+            const partial = parsePartialJson(functionArgs)
+            if (partial && typeof partial === 'object') {
+              yield { type: 'chunk', partialJson: JSON.stringify(partial) }
+
+              // Update status based on what sections we can see
+              const sectionCount = (partial as any)?.sections?.length ?? 0
+              if (sectionCount > 0) {
+                const sectionMessages: Record<number, string> = {
+                  1: 'Generating hero section...',
+                  2: 'Writing about section...',
+                  3: 'Creating project showcases...',
+                  4: 'Organizing skills...',
+                  5: 'Adding contact details...',
+                  6: 'Finalizing portfolio...',
+                }
+                const msg = sectionMessages[sectionCount] ?? `Processing section ${sectionCount}...`
+                yield { type: 'status', step: `section-${sectionCount}`, message: msg, percent: Math.round(estimatedProgress) }
+              }
+            }
+          } catch {
+            // Partial JSON not yet parseable, skip
+          }
+        }
+
+        // Track token usage from stream
+        if (chunk.usage) {
+          totalTokens = chunk.usage.total_tokens ?? 0
+        }
+      }
+
+      yield { type: 'status', step: 'validating', message: 'Validating generated content...', percent: 90 }
+
+      // Parse and validate final output
+      let portfolioData: PortfolioOutput
+      try {
+        const parsed = JSON.parse(functionArgs)
+        const validated = portfolioOutputSchema.safeParse(parsed)
+        if (!validated.success) {
+          yield { type: 'error', error: `Validation failed: ${validated.error.message}` }
+          return
+        }
+        portfolioData = validated.data as PortfolioOutput
+      } catch (parseError) {
+        yield { type: 'error', error: 'Failed to parse AI response as valid JSON' }
+        return
+      }
+
+      yield { type: 'status', step: 'complete', message: 'Portfolio generated successfully!', percent: 100 }
+      yield { type: 'complete', portfolio: portfolioData, tokensUsed: totalTokens }
+    } catch (error: any) {
+      if (error?.name === 'AbortError' || options?.signal?.aborted) {
+        yield { type: 'error', error: 'Generation cancelled' }
+        return
+      }
+      console.error('[ai] generateFullPortfolio error:', error)
+      yield { type: 'error', error: error?.message || 'AI generation failed' }
     }
   }
 

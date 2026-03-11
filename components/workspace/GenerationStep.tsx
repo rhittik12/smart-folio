@@ -4,9 +4,10 @@ export interface GenerationStepData {
   id: number | string;
   status: "pending" | "active" | "complete";
   message: string;
+  percent?: number;
 }
 
-export function GenerationStep({ status, message }: GenerationStepData) {
+export function GenerationStep({ status, message, percent }: GenerationStepData) {
   return (
     <div className="flex items-start gap-3 py-2">
       {/* Status indicator */}
@@ -36,18 +37,28 @@ export function GenerationStep({ status, message }: GenerationStepData) {
         )}
       </div>
 
-      {/* Message */}
-      <span
-        className={`text-sm leading-relaxed ${
-          status === "active"
-            ? "text-[#f0f0f3]"
-            : status === "complete"
-              ? "text-[#8a8a96]"
-              : "text-[#5a5a66]"
-        }`}
-      >
-        {message}
-      </span>
+      {/* Message + optional percent */}
+      <div className="flex flex-1 flex-col">
+        <span
+          className={`text-sm leading-relaxed ${
+            status === "active"
+              ? "text-[#f0f0f3]"
+              : status === "complete"
+                ? "text-[#8a8a96]"
+                : "text-[#5a5a66]"
+          }`}
+        >
+          {message}
+        </span>
+        {status === "active" && typeof percent === "number" && (
+          <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[#27272a]">
+            <div
+              className="h-full rounded-full bg-[#7c3aed] transition-[width] duration-300 ease-out"
+              style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

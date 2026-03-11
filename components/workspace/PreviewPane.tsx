@@ -8,6 +8,7 @@ interface PreviewPaneProps {
   viewport: Viewport;
   onViewportChange: (viewport: Viewport) => void;
   showViewportToggle?: boolean;
+  htmlContent?: string;
 }
 
 const PLACEHOLDER_HTML = `<!DOCTYPE html>
@@ -55,6 +56,7 @@ export function PreviewPane({
   viewport,
   onViewportChange,
   showViewportToggle = true,
+  htmlContent,
 }: PreviewPaneProps) {
   const [iframeLoaded, setIframeLoaded] = useState(false);
 
@@ -104,7 +106,7 @@ export function PreviewPane({
 
           <iframe
             title="Portfolio preview"
-            srcDoc={PLACEHOLDER_HTML}
+            srcDoc={htmlContent || PLACEHOLDER_HTML}
             sandbox="allow-scripts allow-same-origin"
             onLoad={() => setIframeLoaded(true)}
             className={`h-full w-full rounded-lg border border-[#27272a] bg-[#0a0a0b] transition-opacity duration-300 ${
