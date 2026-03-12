@@ -58,13 +58,18 @@ export function useGenerationStream(
     if (startedRef.current) return
     startedRef.current = true
 
+    let disposed = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
     function connect() {
+      if (disposed) return
       updateStatus("connecting")
 
       const ws = new WebSocket(WS_URL)
       wsRef.current = ws
 
       ws.onopen = () => {
+        if (disposed) return
         updateStatus("generating")
         retriesRef.current = 0
 
@@ -83,6 +88,7 @@ export function useGenerationStream(
       }
 
       ws.onmessage = (event) => {
+        if (disposed) return
         let data: ServerMessage
         try {
           data = JSON.parse(event.data)
@@ -151,13 +157,14 @@ export function useGenerationStream(
       }
 
       ws.onclose = (event) => {
+        if (disposed) return
         if (statusRef.current === "complete" || statusRef.current === "error") return
 
         if (retriesRef.current < MAX_RETRIES && !event.wasClean) {
           // Unclean close (network error, server crash) — retry with backoff
           const delay = BASE_RETRY_DELAY * Math.pow(2, retriesRef.current)
           retriesRef.current++
-          setTimeout(connect, delay)
+          retryTimer = setTimeout(connect, delay)
         } else {
           // Either retries exhausted OR clean close without terminal event
           updateStatus("error")
@@ -177,8 +184,10 @@ export function useGenerationStream(
     connect()
 
     return () => {
+      disposed = true
       startedRef.current = false
       retriesRef.current = 0
+      if (retryTimer) clearTimeout(retryTimer)
       wsRef.current?.close()
       wsRef.current = null
     }

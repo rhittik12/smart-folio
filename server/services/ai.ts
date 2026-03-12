@@ -360,7 +360,7 @@ Choose a theme variant that best fits the user's profession. Make the content au
       console.log('[ai] validation_passed')
       yield { type: 'status', step: 'complete', message: 'Portfolio generated successfully!', percent: 100 }
       yield { type: 'complete', portfolio: portfolioData, tokensUsed: totalTokens }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Differentiate: caller cancelled vs timeout vs other error
       const callerAborted = options?.signal?.aborted
       const timedOut = timeoutController.signal.aborted && !callerAborted
@@ -374,8 +374,9 @@ Choose a theme variant that best fits the user's profession. Make the content au
         yield { type: 'error', error: 'AI generation timed out. Please try again.' }
         return
       }
+      const message = error instanceof Error ? error.message : 'AI generation failed'
       console.error('[ai] generateFullPortfolio error:', error)
-      yield { type: 'error', error: error?.message || 'AI generation failed' }
+      yield { type: 'error', error: message }
     } finally {
       clearTimeout(timeoutId)
     }

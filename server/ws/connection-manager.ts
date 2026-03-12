@@ -54,6 +54,12 @@ export class ConnectionManager {
     ws: WebSocket,
     abortController: AbortController,
   ): void {
+    // Abort any existing generation for this portfolio before overwriting
+    const existing = this.activeGenerations.get(portfolioId)
+    if (existing) {
+      console.log(`[connection-manager] Aborting existing generation for portfolio ${portfolioId} before starting new one`)
+      existing.abortController.abort()
+    }
     this.activeGenerations.set(portfolioId, { userId, ws, abortController })
   }
 

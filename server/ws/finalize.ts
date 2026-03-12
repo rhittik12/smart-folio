@@ -93,14 +93,21 @@ export async function failPortfolio(
 ): Promise<void> {
   try {
     await prisma.$transaction(async (tx) => {
-      // Delete any partial sections created for this portfolio
+      // Only clean up if the portfolio is still in GENERATING status.
+      // If it has already moved to READY (via finalizePortfolio), do nothing.
+      const target = await tx.portfolio.findFirst({
+        where: { id: portfolioId, status: 'GENERATING' },
+        select: { id: true },
+      })
+
+      if (!target) return
+
+      // Delete sections first, then the portfolio
       await tx.portfolioSection.deleteMany({
         where: { portfolioId },
       })
-
-      // Delete the orphaned portfolio itself
-      await tx.portfolio.deleteMany({
-        where: { id: portfolioId, status: 'GENERATING' },
+      await tx.portfolio.delete({
+        where: { id: portfolioId },
       })
     })
   } catch (err) {

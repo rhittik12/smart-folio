@@ -11,6 +11,7 @@ import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
 import { PromptInput } from "@/components/workspace/PromptInput";
 import type { Viewport } from "@/components/workspace/PreviewPane";
 import { useGenerationStream } from "@/hooks/use-generation-stream";
+import { canDeletePortfolio } from "@/lib/portfolio-guards";
 
 export default function ProjectPage() {
   const params = useParams();
@@ -53,13 +54,21 @@ export default function ProjectPage() {
     }
   }, [streamStatus, id, utils.portfolio.getById]);
 
-  // ---- Delete stuck portfolio and go back ----
+  // ---- Delete confirmed-FAILED portfolio and go back ----
   const deletePortfolio = trpc.portfolio.delete.useMutation({
     onSuccess: () => router.push("/workspace"),
   });
 
-  const handleTryAgain = () => {
+  const handleDeleteAndRetry = () => {
+    // Guard: only delete if server has confirmed terminal failure
+    if (!canDeletePortfolio(portfolio?.status)) return;
     if (id) deletePortfolio.mutate({ id });
+  };
+
+  // ---- Non-destructive retry: refetch server status (generation may still be running) ----
+  const handleRetryStream = () => {
+    utils.portfolio.getById.invalidate({ id });
+    router.refresh();
   };
 
   // ---- Close avatar menu on outside click ----
@@ -255,7 +264,7 @@ export default function ProjectPage() {
             </div>
 
             <div className="relative z-10 text-center">
-              {portfolio.status === "FAILED" || streamFailed ? (
+              {portfolio.status === "FAILED" ? (
                 <>
                   <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
                     <svg
@@ -281,11 +290,43 @@ export default function ProjectPage() {
                   </p>
                   <button
                     type="button"
-                    onClick={handleTryAgain}
+                    onClick={handleDeleteAndRetry}
                     disabled={deletePortfolio.isPending}
                     className="mt-6 inline-block rounded-lg border border-[#27272a] px-4 py-2 text-sm font-medium text-[#8a8a96] transition-colors hover:border-[#3f3f46] hover:text-[#f0f0f3] disabled:opacity-40"
                   >
-                    {deletePortfolio.isPending ? "Cleaning up..." : "Try Again"}
+                    {deletePortfolio.isPending ? "Cleaning up..." : "Delete & Try Again"}
+                  </button>
+                </>
+              ) : streamFailed ? (
+                <>
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M8 4v5M8 11v1"
+                        stroke="#eab308"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-semibold tracking-tight text-[#f0f0f3]">
+                    Connection Lost
+                  </h2>
+                  <p className="mt-2 max-w-md text-sm text-[#5a5a66]">
+                    {streamError || "Lost connection to the generation server. Your portfolio may still be generating."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRetryStream}
+                    className="mt-6 inline-block rounded-lg border border-[#27272a] px-4 py-2 text-sm font-medium text-[#8a8a96] transition-colors hover:border-[#3f3f46] hover:text-[#f0f0f3]"
+                  >
+                    Check Status
                   </button>
                 </>
               ) : (

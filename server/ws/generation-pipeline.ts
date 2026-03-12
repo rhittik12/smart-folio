@@ -102,9 +102,10 @@ export async function runGeneration(
             )
             console.log(`${tag} finalize_success`)
             sendTerminal({ type: 'generation_complete', portfolioId })
-          } catch (finalizeError: any) {
+          } catch (finalizeError: unknown) {
             console.error(`${tag} finalize_failed:`, finalizeError)
-            await failPortfolio(prisma, portfolioId, finalizeError.message)
+            const finalizeMsg = finalizeError instanceof Error ? finalizeError.message : 'Unknown error'
+            await failPortfolio(prisma, portfolioId, finalizeMsg)
             sendTerminal({
               type: 'generation_error',
               code: 'INTERNAL_ERROR',
@@ -135,10 +136,11 @@ export async function runGeneration(
         message: 'Generation cancelled',
       })
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error(`${tag} unexpected_error:`, err)
     if (!sentTerminal) {
-      try { await failPortfolio(prisma, portfolioId, err?.message ?? 'Unknown error') } catch {}
+      const errMsg = err instanceof Error ? err.message : 'Unknown error'
+      try { await failPortfolio(prisma, portfolioId, errMsg) } catch {}
       sendTerminal({
         type: 'generation_error',
         code: 'INTERNAL_ERROR',
