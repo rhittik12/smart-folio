@@ -30,6 +30,13 @@ export function useGenerationStream(
   const wsRef = useRef<WebSocket | null>(null)
   const retriesRef = useRef(0)
   const startedRef = useRef(false)
+  const statusRef = useRef<StreamStatus>("idle")
+
+  // Keep ref in sync so WS callbacks always see latest status
+  function updateStatus(next: StreamStatus) {
+    statusRef.current = next
+    setStatus(next)
+  }
 
   const cancel = useCallback(() => {
     if (wsRef.current && portfolioId) {
@@ -43,7 +50,7 @@ export function useGenerationStream(
   useEffect(() => {
     if (!portfolioId || portfolioStatus !== "GENERATING") {
       if (portfolioStatus === "READY") {
-        setStatus("complete")
+        updateStatus("complete")
       }
       return
     }
@@ -51,14 +58,19 @@ export function useGenerationStream(
     if (startedRef.current) return
     startedRef.current = true
 
+    let disposed = false
+    let retryTimer: ReturnType<typeof setTimeout> | null = null
+
     function connect() {
-      setStatus("connecting")
+      if (disposed) return
+      updateStatus("connecting")
 
       const ws = new WebSocket(WS_URL)
       wsRef.current = ws
 
       ws.onopen = () => {
-        setStatus("generating")
+        if (disposed) return
+        updateStatus("generating")
         retriesRef.current = 0
 
         const idempotencyKey = `${portfolioId}-${Date.now()}`
@@ -76,6 +88,7 @@ export function useGenerationStream(
       }
 
       ws.onmessage = (event) => {
+        if (disposed) return
         let data: ServerMessage
         try {
           data = JSON.parse(event.data)
@@ -115,7 +128,7 @@ export function useGenerationStream(
             break
 
           case "generation_complete":
-            setStatus("complete")
+            updateStatus("complete")
             setSteps((prev) =>
               prev.map((s) =>
                 s.status === "active" ? { ...s, status: "complete" as const } : s,
@@ -125,7 +138,7 @@ export function useGenerationStream(
             break
 
           case "generation_error":
-            setStatus("error")
+            updateStatus("error")
             setError(data.message)
             setSteps((prev) =>
               prev.map((s) =>
@@ -136,7 +149,7 @@ export function useGenerationStream(
             break
 
           case "rate_limit":
-            setStatus("error")
+            updateStatus("error")
             setError(`${data.reason}. Retry in ${data.retryAfter}s.`)
             ws.close()
             break
@@ -144,12 +157,22 @@ export function useGenerationStream(
       }
 
       ws.onclose = (event) => {
-        if (status === "complete" || status === "error") return
+        if (disposed) return
+        if (statusRef.current === "complete" || statusRef.current === "error") return
 
         if (retriesRef.current < MAX_RETRIES && !event.wasClean) {
+          // Unclean close (network error, server crash) — retry with backoff
           const delay = BASE_RETRY_DELAY * Math.pow(2, retriesRef.current)
           retriesRef.current++
-          setTimeout(connect, delay)
+          retryTimer = setTimeout(connect, delay)
+        } else {
+          // Either retries exhausted OR clean close without terminal event
+          updateStatus("error")
+          setError(
+            retriesRef.current >= MAX_RETRIES
+              ? "Could not connect to the generation server. Please ensure the WebSocket server is running (npm run dev:ws) and try again."
+              : "Connection to generation server was lost. Please try again.",
+          )
         }
       }
 
@@ -161,6 +184,10 @@ export function useGenerationStream(
     connect()
 
     return () => {
+      disposed = true
+      startedRef.current = false
+      retriesRef.current = 0
+      if (retryTimer) clearTimeout(retryTimer)
       wsRef.current?.close()
       wsRef.current = null
     }

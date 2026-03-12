@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth, getUserInitials, getUserDisplayName } from "@/modules/auth";
 import { useSubscription } from "@/modules/billing";
@@ -11,9 +11,11 @@ import { WorkspaceLayout } from "@/components/workspace/WorkspaceLayout";
 import { PromptInput } from "@/components/workspace/PromptInput";
 import type { Viewport } from "@/components/workspace/PreviewPane";
 import { useGenerationStream } from "@/hooks/use-generation-stream";
+import { canDeletePortfolio } from "@/lib/portfolio-guards";
 
 export default function ProjectPage() {
   const params = useParams();
+  const router = useRouter();
   const id = Array.isArray(params.id) ? params.id[0] : (params.id as string);
 
   const { user, isLoading: authLoading } = useAuth();
@@ -51,6 +53,23 @@ export default function ProjectPage() {
       utils.portfolio.getById.invalidate({ id });
     }
   }, [streamStatus, id, utils.portfolio.getById]);
+
+  // ---- Delete confirmed-FAILED portfolio and go back ----
+  const deletePortfolio = trpc.portfolio.delete.useMutation({
+    onSuccess: () => router.push("/workspace"),
+  });
+
+  const handleDeleteAndRetry = () => {
+    // Guard: only delete if server has confirmed terminal failure
+    if (!canDeletePortfolio(portfolio?.status)) return;
+    if (id) deletePortfolio.mutate({ id });
+  };
+
+  // ---- Non-destructive retry: refetch server status (generation may still be running) ----
+  const handleRetryStream = () => {
+    utils.portfolio.getById.invalidate({ id });
+    router.refresh();
+  };
 
   // ---- Close avatar menu on outside click ----
   useEffect(() => {
@@ -91,6 +110,7 @@ export default function ProjectPage() {
   }
 
   const isGenerating = portfolio.status === "GENERATING";
+  const streamFailed = isGenerating && streamStatus === "error";
 
   return (
     <div className="flex h-screen flex-col bg-[#0a0a0b] text-[#f0f0f3]">
@@ -214,7 +234,7 @@ export default function ProjectPage() {
       {/* Main Content                                                        */}
       {/* ================================================================= */}
       <main className="relative flex flex-1 flex-col overflow-hidden">
-        {isGenerating ? (
+        {isGenerating && !streamFailed ? (
           /* ---------- GENERATING: workspace with reasoning + preview ---------- */
           <WorkspaceLayout
             steps={steps}
@@ -265,15 +285,49 @@ export default function ProjectPage() {
                   <h2 className="text-xl font-semibold tracking-tight text-[#f0f0f3]">
                     Generation Failed
                   </h2>
-                  <p className="mt-2 text-sm text-[#5a5a66]">
+                  <p className="mt-2 max-w-md text-sm text-[#5a5a66]">
                     {streamError || "Something went wrong during generation."}
                   </p>
-                  <Link
-                    href="/workspace"
+                  <button
+                    type="button"
+                    onClick={handleDeleteAndRetry}
+                    disabled={deletePortfolio.isPending}
+                    className="mt-6 inline-block rounded-lg border border-[#27272a] px-4 py-2 text-sm font-medium text-[#8a8a96] transition-colors hover:border-[#3f3f46] hover:text-[#f0f0f3] disabled:opacity-40"
+                  >
+                    {deletePortfolio.isPending ? "Cleaning up..." : "Delete & Try Again"}
+                  </button>
+                </>
+              ) : streamFailed ? (
+                <>
+                  <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/10">
+                    <svg
+                      width="24"
+                      height="24"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M8 4v5M8 11v1"
+                        stroke="#eab308"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                  </div>
+                  <h2 className="text-xl font-semibold tracking-tight text-[#f0f0f3]">
+                    Connection Lost
+                  </h2>
+                  <p className="mt-2 max-w-md text-sm text-[#5a5a66]">
+                    {streamError || "Lost connection to the generation server. Your portfolio may still be generating."}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleRetryStream}
                     className="mt-6 inline-block rounded-lg border border-[#27272a] px-4 py-2 text-sm font-medium text-[#8a8a96] transition-colors hover:border-[#3f3f46] hover:text-[#f0f0f3]"
                   >
-                    Try Again
-                  </Link>
+                    Check Status
+                  </button>
                 </>
               ) : (
                 <>

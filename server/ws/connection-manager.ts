@@ -1,8 +1,8 @@
 import type WebSocket from 'ws'
-import type { AuthenticatedWs } from './types'
 
 interface ActiveGeneration {
   userId: string
+  ws: WebSocket
   abortController: AbortController
 }
 
@@ -32,9 +32,9 @@ export class ConnectionManager {
       this.connections.delete(userId)
     }
 
-    // Cancel any active generations for this socket
+    // Only cancel generations that were initiated from THIS socket
     for (const [portfolioId, gen] of this.activeGenerations) {
-      if (gen.userId === userId) {
+      if (gen.ws === ws) {
         gen.abortController.abort()
         this.activeGenerations.delete(portfolioId)
       }
@@ -51,18 +51,31 @@ export class ConnectionManager {
   setActiveGeneration(
     portfolioId: string,
     userId: string,
+    ws: WebSocket,
     abortController: AbortController,
   ): void {
-    this.activeGenerations.set(portfolioId, { userId, abortController })
+    // Abort any existing generation for this portfolio before overwriting
+    const existing = this.activeGenerations.get(portfolioId)
+    if (existing) {
+      console.log(`[connection-manager] Aborting existing generation for portfolio ${portfolioId} before starting new one`)
+      existing.abortController.abort()
+    }
+    this.activeGenerations.set(portfolioId, { userId, ws, abortController })
   }
 
-  clearActiveGeneration(portfolioId: string): void {
-    this.activeGenerations.delete(portfolioId)
+  clearActiveGeneration(portfolioId: string, abortController: AbortController): void {
+    const current = this.activeGenerations.get(portfolioId)
+    // Only clear if the stored entry belongs to this run.
+    // A newer run may have replaced the slot; don't delete it.
+    if (current && current.abortController === abortController) {
+      this.activeGenerations.delete(portfolioId)
+    }
   }
 
-  cancelGeneration(portfolioId: string): boolean {
+  /** Cancel only if the requesting userId owns this generation. */
+  cancelGeneration(portfolioId: string, userId: string): boolean {
     const gen = this.activeGenerations.get(portfolioId)
-    if (!gen) return false
+    if (!gen || gen.userId !== userId) return false
     gen.abortController.abort()
     this.activeGenerations.delete(portfolioId)
     return true

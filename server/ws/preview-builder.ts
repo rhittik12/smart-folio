@@ -1,8 +1,8 @@
 import type { PortfolioOutput, PortfolioSection } from './types'
 
 export function buildPreviewHtml(partial: Partial<PortfolioOutput>): string {
-  const theme = partial.theme ?? 'MINIMAL'
-  const colors = THEME_COLORS[theme] ?? THEME_COLORS.MINIMAL
+  const variant = partial.theme?.variant ?? 'MINIMAL'
+  const colors = THEME_COLORS[variant] ?? THEME_COLORS.MINIMAL
 
   const sectionsHtml = (partial.sections ?? [])
     .map((s) => renderSection(s, colors))

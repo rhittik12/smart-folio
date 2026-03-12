@@ -12,33 +12,53 @@ export async function runGeneration(
   prisma: PrismaClient,
   send: (msg: ServerMessage) => void,
 ): Promise<void> {
-  // 1. Validate portfolio
-  const portfolio = await prisma.portfolio.findFirst({
-    where: { id: portfolioId, userId, status: 'GENERATING' },
-  })
+  const tag = `[pipeline:${portfolioId.slice(0, 8)}]`
+  let sentTerminal = false
 
-  if (!portfolio) {
-    send({
-      type: 'generation_error',
-      code: 'NOT_FOUND',
-      message: 'Portfolio not found or not in GENERATING status',
-    })
-    return
+  /**
+   * Send a terminal event (generation_complete or generation_error).
+   * Guaranteed to fire at most once — duplicates are logged and ignored.
+   */
+  function sendTerminal(msg: ServerMessage) {
+    if (sentTerminal) {
+      console.warn(`${tag} Duplicate terminal event suppressed:`, msg.type)
+      return
+    }
+    sentTerminal = true
+    console.log(`${tag} terminal -> ${msg.type}`)
+    send(msg)
   }
 
-  const prompt = portfolio.description || portfolio.title
-
-  // 2. Create AI service
-  const aiService = new AIService(
-    {
-      openaiApiKey: process.env.OPENAI_API_KEY || '',
-      defaultModel: 'gpt-4',
-    },
-    prisma,
-  )
-
-  // 3. Run streaming generation
   try {
+    // 1. Validate portfolio
+    console.log(`${tag} start, user=${userId}`)
+    const portfolio = await prisma.portfolio.findFirst({
+      where: { id: portfolioId, userId, status: 'GENERATING' },
+    })
+
+    if (!portfolio) {
+      sendTerminal({
+        type: 'generation_error',
+        code: 'NOT_FOUND',
+        message: 'Portfolio not found or not in GENERATING status',
+      })
+      return
+    }
+
+    const prompt = portfolio.description || portfolio.title
+    console.log(`${tag} validated, prompt="${prompt.slice(0, 80)}"`)
+
+    // 2. Create AI service
+    const aiService = new AIService(
+      {
+        openaiApiKey: process.env.OPENAI_API_KEY || '',
+        defaultModel: 'gpt-4',
+      },
+      prisma,
+    )
+
+    // 3. Run streaming generation
+    console.log(`${tag} openai_stream_start`)
     const generator = aiService.generateFullPortfolio(prompt, userId, { signal })
 
     for await (const event of generator) {
@@ -46,6 +66,7 @@ export async function runGeneration(
 
       switch (event.type) {
         case 'status':
+          console.log(`${tag} status: ${event.step} (${event.percent}%)`)
           send({
             type: 'generation_status',
             step: event.step,
@@ -69,6 +90,21 @@ export async function runGeneration(
 
         case 'complete':
           // Finalize to database
+          console.log(`${tag} ai_complete, finalizing to DB`)
+
+          // Re-check cancellation before committing — user may have cancelled
+          // after the AI finished but before we write to the database.
+          if (signal.aborted) {
+            console.log(`${tag} cancelled before finalization`)
+            await failPortfolio(prisma, portfolioId, 'Cancelled')
+            sendTerminal({
+              type: 'generation_error',
+              code: 'INTERNAL_ERROR',
+              message: 'Generation cancelled',
+            })
+            break
+          }
+
           try {
             await finalizePortfolio(
               prisma,
@@ -78,11 +114,13 @@ export async function runGeneration(
               event.tokensUsed,
               prompt,
             )
-            send({ type: 'generation_complete', portfolioId })
-          } catch (finalizeError: any) {
-            console.error('[pipeline] Finalization failed:', finalizeError)
-            await failPortfolio(prisma, portfolioId, finalizeError.message)
-            send({
+            console.log(`${tag} finalize_success`)
+            sendTerminal({ type: 'generation_complete', portfolioId })
+          } catch (finalizeError: unknown) {
+            console.error(`${tag} finalize_failed:`, finalizeError)
+            const finalizeMsg = finalizeError instanceof Error ? finalizeError.message : 'Unknown error'
+            await failPortfolio(prisma, portfolioId, finalizeMsg)
+            sendTerminal({
               type: 'generation_error',
               code: 'INTERNAL_ERROR',
               message: 'Failed to save portfolio data',
@@ -91,8 +129,9 @@ export async function runGeneration(
           break
 
         case 'error':
+          console.error(`${tag} ai_error: ${event.error}`)
           await failPortfolio(prisma, portfolioId, event.error)
-          send({
+          sendTerminal({
             type: 'generation_error',
             code: 'AI_ERROR',
             message: event.error,
@@ -100,17 +139,39 @@ export async function runGeneration(
           break
       }
     }
-  } catch (err: any) {
-    if (signal.aborted) {
+
+    // Loop exited — handle abort-via-break (no terminal sent yet)
+    if (!sentTerminal && signal.aborted) {
+      console.log(`${tag} cancelled`)
       await failPortfolio(prisma, portfolioId, 'Cancelled')
-      return
+      sendTerminal({
+        type: 'generation_error',
+        code: 'INTERNAL_ERROR',
+        message: 'Generation cancelled',
+      })
     }
-    console.error('[pipeline] Unexpected error:', err)
-    await failPortfolio(prisma, portfolioId, err.message)
-    send({
-      type: 'generation_error',
-      code: 'INTERNAL_ERROR',
-      message: 'Unexpected error during generation',
-    })
+  } catch (err: unknown) {
+    console.error(`${tag} unexpected_error:`, err)
+    if (!sentTerminal) {
+      const errMsg = err instanceof Error ? err.message : 'Unknown error'
+      try { await failPortfolio(prisma, portfolioId, errMsg) } catch {}
+      sendTerminal({
+        type: 'generation_error',
+        code: 'INTERNAL_ERROR',
+        message: signal.aborted ? 'Generation cancelled' : 'Unexpected error during generation',
+      })
+    }
+  } finally {
+    // Safety net — guarantees at least one terminal event
+    if (!sentTerminal) {
+      console.error(`${tag} SAFETY_NET: no terminal event was sent, forcing cleanup`)
+      try { await failPortfolio(prisma, portfolioId, 'No terminal event') } catch {}
+      send({
+        type: 'generation_error',
+        code: 'INTERNAL_ERROR',
+        message: 'Generation ended unexpectedly',
+      })
+    }
+    console.log(`${tag} pipeline_finished`)
   }
 }

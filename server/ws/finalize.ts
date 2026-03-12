@@ -46,9 +46,9 @@ export async function finalizePortfolio(
       where: { id: portfolioId },
       data: {
         status: 'READY',
-        theme: output.theme,
-        seoTitle: output.metadata.title,
-        seoDescription: output.metadata.description,
+        theme: output.theme.variant,
+        seoTitle: output.metadata.seoTitle ?? output.metadata.title,
+        seoDescription: output.metadata.seoDescription ?? output.metadata.description,
       },
     })
 
@@ -92,11 +92,25 @@ export async function failPortfolio(
   errorMessage: string,
 ): Promise<void> {
   try {
-    await prisma.portfolio.updateMany({
-      where: { id: portfolioId, status: 'GENERATING' },
-      data: { status: 'FAILED' },
+    await prisma.$transaction(async (tx) => {
+      // Only clean up if the portfolio is still in GENERATING status.
+      // If it has already moved to READY (via finalizePortfolio), do nothing.
+      const target = await tx.portfolio.findFirst({
+        where: { id: portfolioId, status: 'GENERATING' },
+        select: { id: true },
+      })
+
+      if (!target) return
+
+      // Delete sections first, then the portfolio
+      await tx.portfolioSection.deleteMany({
+        where: { portfolioId },
+      })
+      await tx.portfolio.delete({
+        where: { id: portfolioId },
+      })
     })
   } catch (err) {
-    console.error(`[finalize] Failed to mark portfolio ${portfolioId} as FAILED:`, err)
+    console.error(`[finalize] Failed to clean up portfolio ${portfolioId}:`, err)
   }
 }

@@ -67,11 +67,20 @@ export type ServerMessage =
 // Portfolio Output Contract
 // ============================================
 
+export type ThemeVariant = 'MINIMAL' | 'MODERN' | 'CREATIVE' | 'PROFESSIONAL' | 'DARK'
+
+export interface PortfolioTheme {
+  variant: ThemeVariant
+}
+
 export interface PortfolioMetadata {
   title: string
   description: string
   author: string
   profession: string
+  seoTitle?: string
+  seoDescription?: string
+  seoKeywords?: string[]
 }
 
 export interface HeroSection {
@@ -135,7 +144,7 @@ export type PortfolioSection =
   | FooterSection
 
 export interface PortfolioOutput {
-  theme: 'MINIMAL' | 'MODERN' | 'CREATIVE' | 'PROFESSIONAL' | 'DARK'
+  theme: PortfolioTheme
   metadata: PortfolioMetadata
   sections: PortfolioSection[]
 }

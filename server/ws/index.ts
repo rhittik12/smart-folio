@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { createServer } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import { PrismaClient } from '@prisma/client'
@@ -26,38 +27,46 @@ const server = createServer((_req, res) => {
 
 const wss = new WebSocketServer({ server })
 
-wss.on('connection', async (ws: WebSocket, request) => {
+wss.on('connection', (ws: WebSocket, request) => {
+  // Auth starts immediately but resolves async.
+  // Handlers are registered synchronously so no messages are lost.
   let authed: AuthenticatedWs | null = null
+  let authFailed = false
 
-  try {
-    const auth = await authenticateWsConnection(request)
-    ;(ws as AuthenticatedWs).userId = auth.userId
-    ;(ws as AuthenticatedWs).sessionId = auth.sessionId
-    authed = ws as AuthenticatedWs
+  const authReady = authenticateWsConnection(request)
+    .then((auth) => {
+      ;(ws as AuthenticatedWs).userId = auth.userId
+      ;(ws as AuthenticatedWs).sessionId = auth.sessionId
+      authed = ws as AuthenticatedWs
 
-    if (!connectionManager.addConnection(auth.userId, authed)) {
+      if (!connectionManager.addConnection(auth.userId, authed)) {
+        send(ws, {
+          type: 'generation_error',
+          code: 'RATE_LIMITED',
+          message: 'Too many connections. Max 3 per user.',
+        })
+        ws.close(1008, 'Too many connections')
+        authFailed = true
+        return
+      }
+
+      console.log(`[ws] connect, user=${auth.userId}`)
+    })
+    .catch((err) => {
+      console.error(`[ws] auth_failed:`, (err as Error).message)
+      authFailed = true
       send(ws, {
         type: 'generation_error',
-        code: 'RATE_LIMITED',
-        message: 'Too many connections. Max 3 per user.',
+        code: 'UNAUTHORIZED',
+        message: 'Authentication failed',
       })
-      ws.close(1008, 'Too many connections')
-      return
-    }
-
-    console.log(`[ws] User ${auth.userId} connected (session: ${auth.sessionId})`)
-  } catch (err) {
-    send(ws, {
-      type: 'generation_error',
-      code: 'UNAUTHORIZED',
-      message: 'Authentication failed',
+      ws.close(1008, 'Unauthorized')
     })
-    ws.close(1008, 'Unauthorized')
-    return
-  }
 
+  // ---- Message handler: registered immediately, awaits auth before processing ----
   ws.on('message', async (raw) => {
-    if (!authed) return
+    await authReady
+    if (!authed || authFailed) return
 
     let data: unknown
     try {
@@ -102,7 +111,9 @@ wss.on('connection', async (ws: WebSocket, request) => {
       }
 
       const abortController = new AbortController()
-      connectionManager.setActiveGeneration(msg.portfolioId, authed.userId, abortController)
+      connectionManager.setActiveGeneration(msg.portfolioId, authed.userId, ws, abortController)
+
+      console.log(`[ws] generation_start: portfolio=${msg.portfolioId}, user=${authed.userId}`)
 
       runGeneration(
         authed,
@@ -111,30 +122,43 @@ wss.on('connection', async (ws: WebSocket, request) => {
         abortController.signal,
         prisma,
         (message: ServerMessage) => send(ws, message),
-      ).finally(() => {
-        connectionManager.clearActiveGeneration(msg.portfolioId)
+      ).catch((err) => {
+        console.error(`[ws] runGeneration unhandled error for ${msg.portfolioId}:`, err)
+      }).finally(() => {
+        connectionManager.clearActiveGeneration(msg.portfolioId, abortController)
+        console.log(`[ws] generation_slot_cleared: portfolio=${msg.portfolioId}`)
       })
     }
 
     if (msg.type === 'cancel_generation') {
-      connectionManager.cancelGeneration(msg.portfolioId)
-      send(ws, {
-        type: 'generation_error',
-        code: 'INTERNAL_ERROR',
-        message: 'Generation cancelled by user',
-      })
+      const cancelled = connectionManager.cancelGeneration(msg.portfolioId, authed.userId)
+      if (cancelled) {
+        send(ws, {
+          type: 'generation_error',
+          code: 'INTERNAL_ERROR',
+          message: 'Generation cancelled by user',
+        })
+      } else {
+        send(ws, {
+          type: 'generation_error',
+          code: 'NOT_FOUND',
+          message: 'No active generation found for this portfolio',
+        })
+      }
     }
   })
 
-  ws.on('close', () => {
+  // ---- Close handler: registered immediately ----
+  ws.on('close', async () => {
+    await authReady
     if (authed) {
       connectionManager.removeConnection(authed.userId, authed)
-      console.log(`[ws] User ${authed.userId} disconnected`)
+      console.log(`[ws] disconnect, user=${authed.userId}`)
     }
   })
 
   ws.on('error', (err) => {
-    console.error(`[ws] Error for user ${authed?.userId}:`, err.message)
+    console.error(`[ws] socket_error:`, err.message)
   })
 })
 
