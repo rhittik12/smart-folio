@@ -125,7 +125,7 @@ wss.on('connection', (ws: WebSocket, request) => {
       ).catch((err) => {
         console.error(`[ws] runGeneration unhandled error for ${msg.portfolioId}:`, err)
       }).finally(() => {
-        connectionManager.clearActiveGeneration(msg.portfolioId)
+        connectionManager.clearActiveGeneration(msg.portfolioId, abortController)
         console.log(`[ws] generation_slot_cleared: portfolio=${msg.portfolioId}`)
       })
     }

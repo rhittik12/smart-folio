@@ -91,6 +91,20 @@ export async function runGeneration(
         case 'complete':
           // Finalize to database
           console.log(`${tag} ai_complete, finalizing to DB`)
+
+          // Re-check cancellation before committing — user may have cancelled
+          // after the AI finished but before we write to the database.
+          if (signal.aborted) {
+            console.log(`${tag} cancelled before finalization`)
+            await failPortfolio(prisma, portfolioId, 'Cancelled')
+            sendTerminal({
+              type: 'generation_error',
+              code: 'INTERNAL_ERROR',
+              message: 'Generation cancelled',
+            })
+            break
+          }
+
           try {
             await finalizePortfolio(
               prisma,

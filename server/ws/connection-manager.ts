@@ -63,8 +63,13 @@ export class ConnectionManager {
     this.activeGenerations.set(portfolioId, { userId, ws, abortController })
   }
 
-  clearActiveGeneration(portfolioId: string): void {
-    this.activeGenerations.delete(portfolioId)
+  clearActiveGeneration(portfolioId: string, abortController: AbortController): void {
+    const current = this.activeGenerations.get(portfolioId)
+    // Only clear if the stored entry belongs to this run.
+    // A newer run may have replaced the slot; don't delete it.
+    if (current && current.abortController === abortController) {
+      this.activeGenerations.delete(portfolioId)
+    }
   }
 
   /** Cancel only if the requesting userId owns this generation. */
